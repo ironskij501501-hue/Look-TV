@@ -1,1 +1,16 @@
-
+{
+  "playlists": [
+    {
+      "name": "Основной",
+      "url": "https://raw.githubusercontent.com/ironskij501501-hue/LookTV/main/playlist_main.m3u8"
+    },
+    {
+      "name": "Резервный 1",
+      "url": "https://raw.githubusercontent.com/ironskij501501-hue/LookTV/main/playlist_backup1.m3u8"
+    },
+    {
+      "name": "Резервный 2",
+      "url": "https://raw.githubusercontent.com/ironskij501501-hue/LookTV/main/playlist_backup2.m3u8"
+    }
+  ]
+}
