@@ -916,9 +916,6 @@ http://hz2atwul.siauliairsavlt.org/iptv/9ZQVPG3B9LPC6A2CBPZPVN7B/17018/index.m3u
 http://hz2atwul.siauliairsavlt.org/iptv/9ZQVPG3B9LPC6A2CBPZPVN7B/15012/index.m3u8
 #EXTINF:0 tvg-rec="0",РБК HD
 #EXTGRP:Новостные
-http://hz2atwul.siauliairsavlt.org/iptv/9ZQVPG3B9LPC6A2CBPZPVN7B/16075/index.m3u8
-#EXTINF:0 tvg-rec="0",Инфоканал
-#EXTGRP:Новостные
 http://hz2atwul.siauliairsavlt.org/iptv/9ZQVPG3B9LPC6A2CBPZPVN7B/435/index.m3u8
 #EXTINF:0 tvg-rec="3",Россия 24 +2
 #EXTGRP:Новостные
@@ -7112,3 +7109,4 @@ http://hz2atwul.siauliairsavlt.org/iptv/9ZQVPG3B9LPC6A2CBPZPVN7B/31709/index.m3u
 #EXTINF:0 tvg-rec="0",StrahTV Ню Арт HD
 #EXTGRP:Взрослые
 http://hz2atwul.siauliairsavlt.org/iptv/9ZQVPG3B9LPC6A2CBPZPVN7B/31716/index.m3u8
+
