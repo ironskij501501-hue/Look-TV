@@ -34,7 +34,7 @@ except ImportError:
 # ==================== НАСТРОЙКИ ====================
 
 # GitHub (будут использоваться только если библиотека установлена)
-GITHUB_TOKEN = "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"
+GITHUB_TOKEN = "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"
 GITHUB_REPO_LOOKTV = "ironskij501501-hue/LookTV"
 GITHUB_REPO_FILES = "ironskij501501-hue/Look-TV"
 ALLOWED_FILE = "allowed_macs.txt"
@@ -302,5 +302,6 @@ if __name__ == '__main__':
     logger.info(f"   - /activate (POST)")
     logger.info(f"📦 Библиотеки: PyGithub={'✅' if GITHUB_AVAILABLE else '❌'}, requests={'✅' if REQUESTS_AVAILABLE else '❌'}")
     app.run(host=HOST, port=PORT, debug=DEBUG)
+
 
 
