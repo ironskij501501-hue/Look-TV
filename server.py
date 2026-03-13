@@ -41,8 +41,8 @@ ALLOWED_FILE = "allowed_macs.txt"
 TOKENS_FILE = "tokens.json"
 
 # GetPlatinum
-GETPLATINUM_API_KEY = "ваш_api_ключ_из_личного_кабинета"  # ЗАМЕНИТЕ
-BOT_TOKEN = "ваш_токен_бота"  # ЗАМЕНИТЕ
+GETPLATINUM_API_KEY = "PdsbGpgy6gsAUYEex7zfku7M25jq62dv4XUmftSWMweNOZfRRszB6Sh7oLiR6gXS"  # ЗАМЕНИТЕ
+BOT_TOKEN = "5c187a2253f019efbbf7d027d2db7eb5ab5a5d790c02e84bc0ec08cdb4f1bf86"  # ЗАМЕНИТЕ
 
 # Настройки Flask
 DEBUG = False
@@ -302,6 +302,7 @@ if __name__ == '__main__':
     logger.info(f"   - /activate (POST)")
     logger.info(f"📦 Библиотеки: PyGithub={'✅' if GITHUB_AVAILABLE else '❌'}, requests={'✅' if REQUESTS_AVAILABLE else '❌'}")
     app.run(host=HOST, port=PORT, debug=DEBUG)
+
 
 
 
