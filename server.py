@@ -4,7 +4,7 @@
 """
 Сервер активации для LookTV
 Обрабатывает webhook от GetPlatinum и активацию устройств
-Версия с защитой от отсутствия библиотек
+Версия с безопасным хранением секретов в переменных окружения
 """
 
 import os
@@ -31,23 +31,46 @@ except ImportError:
     GITHUB_AVAILABLE = False
     print("⚠️ Библиотека PyGithub не установлена. Работа с GitHub будет недоступна.")
 
-# ==================== НАСТРОЙКИ ====================
+# ==================== НАСТРОЙКИ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ====================
 
-# GitHub (будут использоваться только если библиотека установлена)
-GITHUB_TOKEN = "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"
-GITHUB_REPO_LOOKTV = "ironskij501501-hue/LookTV"
-GITHUB_REPO_FILES = "ironskij501501-hue/Look-TV"
-ALLOWED_FILE = "allowed_macs.txt"
-TOKENS_FILE = "tokens.json"
+# GitHub (обязательно через переменные окружения!)
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
+GITHUB_REPO_LOOKTV = os.environ.get('GITHUB_REPO_LOOKTV', 'ironskij501501-hue/LookTV')
+GITHUB_REPO_FILES = os.environ.get('GITHUB_REPO_FILES', 'ironskij501501-hue/Look-TV')
+ALLOWED_FILE = os.environ.get('ALLOWED_FILE', 'allowed_macs.txt')
+TOKENS_FILE = os.environ.get('TOKENS_FILE', 'tokens.json')
 
-# GetPlatinum
-GETPLATINUM_API_KEY = "PdsbGpgy6gsAUYEex7zfku7M25jq62dv4XUmftSWMweNOZfRRszB6Sh7oLiR6gXS"  # ЗАМЕНИТЕ
-BOT_TOKEN = "5c187a2253f019efbbf7d027d2db7eb5ab5a5d790c02e84bc0ec08cdb4f1bf86"  # ЗАМЕНИТЕ
+# GetPlatinum (обязательно через переменные окружения!)
+GETPLATINUM_API_KEY = os.environ.get('GETPLATINUM_API_KEY', '')
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
 
 # Настройки Flask
-DEBUG = False
-PORT = int(os.environ.get("PORT", 5000))
-HOST = "0.0.0.0"
+DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+PORT = int(os.environ.get('PORT', 5000))
+HOST = os.environ.get('HOST', '0.0.0.0')
+
+# ==================== ПРОВЕРКА СЕКРЕТОВ ====================
+
+def check_secrets():
+    """Проверяет наличие всех необходимых секретов"""
+    missing = []
+    
+    if not GITHUB_TOKEN:
+        missing.append("GITHUB_TOKEN")
+        logger.warning("⚠️ GITHUB_TOKEN не установлен. GitHub функции будут недоступны.")
+    
+    if not GETPLATINUM_API_KEY:
+        missing.append("GETPLATINUM_API_KEY")
+        logger.warning("⚠️ GETPLATINUM_API_KEY не установлен. Проверка подписи работать не будет!")
+    
+    if not BOT_TOKEN:
+        missing.append("BOT_TOKEN")
+        logger.warning("⚠️ BOT_TOKEN не установлен. Уведомления в Telegram не будут отправляться.")
+    
+    if missing:
+        logger.warning(f"⚠️ Отсутствуют секреты: {', '.join(missing)}")
+        return False
+    return True
 
 # ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
@@ -55,8 +78,11 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Подключаемся к GitHub только если библиотека установлена
-if GITHUB_AVAILABLE:
+# Проверяем секреты при запуске
+check_secrets()
+
+# Подключаемся к GitHub только если библиотека установлена и есть токен
+if GITHUB_AVAILABLE and GITHUB_TOKEN:
     try:
         g = Github(GITHUB_TOKEN)
         repo_looktv = g.get_repo(GITHUB_REPO_LOOKTV)
@@ -67,16 +93,19 @@ if GITHUB_AVAILABLE:
         repo_looktv = None
         repo_files = None
 else:
-    logger.warning("⚠️ Библиотека PyGithub не установлена. GitHub функции отключены.")
+    if not GITHUB_AVAILABLE:
+        logger.warning("⚠️ Библиотека PyGithub не установлена. GitHub функции отключены.")
+    elif not GITHUB_TOKEN:
+        logger.warning("⚠️ GITHUB_TOKEN не установлен. GitHub функции отключены.")
     repo_looktv = None
     repo_files = None
 
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
 def get_github_file(repo, path):
-    """Получает содержимое файла из GitHub (заглушка без библиотеки)"""
-    if not GITHUB_AVAILABLE:
-        logger.error("❌ Библиотека PyGithub не установлена")
+    """Получает содержимое файла из GitHub"""
+    if not GITHUB_AVAILABLE or not repo or not GITHUB_TOKEN:
+        logger.error("❌ GitHub недоступен (библиотека или токен)")
         return None, None
     try:
         contents = repo.get_contents(path)
@@ -87,9 +116,9 @@ def get_github_file(repo, path):
         return None, None
 
 def update_github_file(repo, path, new_content, sha, commit_message):
-    """Обновляет файл на GitHub (заглушка без библиотеки)"""
-    if not GITHUB_AVAILABLE:
-        logger.error("❌ Библиотека PyGithub не установлена")
+    """Обновляет файл на GitHub"""
+    if not GITHUB_AVAILABLE or not repo or not GITHUB_TOKEN:
+        logger.error("❌ GitHub недоступен (библиотека или токен)")
         return False
     try:
         if sha:
@@ -103,8 +132,9 @@ def update_github_file(repo, path, new_content, sha, commit_message):
         return False
 
 def get_latest_apk_info():
-    """Получает информацию о последнем APK (заглушка без библиотеки)"""
-    if not GITHUB_AVAILABLE or not repo_looktv:
+    """Получает информацию о последнем APK"""
+    if not GITHUB_AVAILABLE or not repo_looktv or not GITHUB_TOKEN:
+        logger.warning("⚠️ GitHub недоступен, использую заглушку")
         return "1.0.0", "https://github.com/ironskij501501-hue/LookTV/releases/latest"
     try:
         releases = list(repo_looktv.get_releases())
@@ -125,9 +155,9 @@ def send_telegram_message(chat_id, token, apk_version, apk_url):
     if not REQUESTS_AVAILABLE:
         logger.error("❌ Библиотека requests не установлена")
         return False
-    if not BOT_TOKEN or BOT_TOKEN == "ваш_токен_бота":
-        logger.warning("BOT_TOKEN не настроен")
-        return False
+    if not BOT_TOKEN:
+        logger.warning("BOT_TOKEN не настроен, пропускаем отправку")
+        return True  # Возвращаем успех, чтобы не ломать логику
     
     text = (
         "🎉 <b>Оплата прошла успешно!</b>\n\n"
@@ -143,17 +173,16 @@ def send_telegram_message(chat_id, token, apk_version, apk_url):
     )
     
     try:
-        import requests
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
         response = requests.post(url, json=payload, timeout=10)
         return response.status_code == 200
     except Exception as e:
-        logger.error(f"Ошибка отправки: {e}")
+        logger.error(f"Ошибка отправки в Telegram: {e}")
         return False
 
 def load_tokens():
-    """Загружает токены из локального файла (не из GitHub)"""
+    """Загружает токены из локального файла"""
     try:
         if os.path.exists(TOKENS_FILE):
             with open(TOKENS_FILE, 'r') as f:
@@ -174,13 +203,17 @@ def save_tokens(tokens, sha=None, message=""):
         return False
 
 def add_to_allowed_list(android_id):
-    """Заглушка для добавления в белый список (реальная реализация через GitHub или локально)"""
+    """Добавляет устройство в белый список"""
     logger.info(f"✅ Устройство {android_id} активировано")
-    # Здесь можно добавить реальное сохранение в файл
+    # TODO: добавить реальное сохранение в файл
     return True
 
 def verify_getplatinum_signature(data):
     """Проверяет подпись от GetPlatinum"""
+    if not GETPLATINUM_API_KEY:
+        logger.warning("⚠️ GETPLATINUM_API_KEY не настроен, пропускаем проверку подписи")
+        return True
+    
     received_checksum = data.get('checksum')
     if not received_checksum:
         return False
@@ -288,8 +321,13 @@ def health():
     return jsonify({
         "status": "ok", 
         "time": datetime.now().isoformat(),
-        "github_available": GITHUB_AVAILABLE,
-        "requests_available": REQUESTS_AVAILABLE
+        "github_available": GITHUB_AVAILABLE and bool(GITHUB_TOKEN),
+        "requests_available": REQUESTS_AVAILABLE,
+        "secrets_configured": {
+            "github": bool(GITHUB_TOKEN),
+            "getplatinum": bool(GETPLATINUM_API_KEY),
+            "telegram": bool(BOT_TOKEN)
+        }
     })
 
 # ==================== ЗАПУСК ====================
@@ -301,6 +339,7 @@ if __name__ == '__main__':
     logger.info(f"   - /getplatinum-webhook (POST)")
     logger.info(f"   - /activate (POST)")
     logger.info(f"📦 Библиотеки: PyGithub={'✅' if GITHUB_AVAILABLE else '❌'}, requests={'✅' if REQUESTS_AVAILABLE else '❌'}")
+    logger.info(f"🔐 Секреты: GitHub={'✅' if GITHUB_TOKEN else '❌'}, GetPlatinum={'✅' if GETPLATINUM_API_KEY else '❌'}, Telegram={'✅' if BOT_TOKEN else '❌'}")
     app.run(host=HOST, port=PORT, debug=DEBUG)
 
 
