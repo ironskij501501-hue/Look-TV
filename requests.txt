@@ -1,0 +1,2 @@
+# Device authorization requests
+f7551d9c5ff454f9 # MAC: Not found
