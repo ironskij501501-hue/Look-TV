@@ -1,0 +1,71 @@
+#EXTM3U
+#EXTINF:-1 ,ANTENA
+http://78.130.250.2:8023/play/a03o/index.m3u8
+#EXTINF:-1 ,Camera Deputati
+http://78.130.250.2:8023/play/a04g/index.m3u8
+#EXTINF:-1 ,Cielo
+http://78.130.250.2:8023/play/a06g/index.m3u8
+#EXTINF:-1 ,EQUtv
+http://78.130.250.2:8023/play/a05y/index.m3u8
+#EXTINF:-1 ,EURONEWS ITALIAN SD PAL 1.8
+http://78.130.250.2:8023/play/a06q/index.m3u8
+#EXTINF:-1 ,Juwelo TV
+http://78.130.250.2:8023/play/a06e/index.m3u8
+#EXTINF:-1 ,LA7 HD
+http://78.130.250.2:8023/play/a045/index.m3u8
+#EXTINF:-1 ,LA7CINEMA
+http://78.130.250.2:8023/play/a044/index.m3u8
+#EXTINF:-1 ,MARCOPOLO
+http://78.130.250.2:8023/play/a060/index.m3u8
+#EXTINF:-1 ,Med TV
+http://78.130.250.2:8023/play/a065/index.m3u8
+#EXTINF:-1 ,Padre Pio Tv
+http://78.130.250.2:8023/play/a05r/index.m3u8
+#EXTINF:-1 ,Polonia 1
+http://78.130.250.2:8023/play/a05t/index.m3u8
+#EXTINF:-1 ,POWER TV
+http://78.130.250.2:8023/play/a03s/index.m3u8
+#EXTINF:-1 ,QVC HD
+http://78.130.250.2:8023/play/a063/index.m3u8
+#EXTINF:-1 ,Radio Italia Tv HD
+http://78.130.250.2:8023/play/a05x/index.m3u8
+#EXTINF:-1 ,Radio Kiss Kiss TV
+http://78.130.250.2:8023/play/a061/index.m3u8
+#EXTINF:-1 ,Rai 5 HD
+http://78.130.250.2:8023/play/a04o/index.m3u8
+#EXTINF:-1 ,Rai Gulp HD
+http://78.130.250.2:8023/play/a04m/index.m3u8
+#EXTINF:-1 ,Rai News 24 HD
+http://78.130.250.2:8023/play/a04l/index.m3u8
+#EXTINF:-1 ,Rai Premium HD
+http://78.130.250.2:8023/play/a04i/index.m3u8
+#EXTINF:-1 ,Rai Scuola HD
+http://78.130.250.2:8023/play/a04h/index.m3u8
+#EXTINF:-1 ,Rai Sport HD
+http://78.130.250.2:8023/play/a04n/index.m3u8
+#EXTINF:-1 ,Rai Storia HD
+http://78.130.250.2:8023/play/a04f/index.m3u8
+#EXTINF:-1 ,Rai YoYo HD
+http://78.130.250.2:8023/play/a04d/index.m3u8
+#EXTINF:-1 ,TELE 5
+http://78.130.250.2:8023/play/a05s/index.m3u8
+#EXTINF:-1 ,TV8 HD
+http://78.130.250.2:8023/play/a06h/index.m3u8
+#EXTINF:-1 ,TVA Vicenza
+http://78.130.250.2:8023/play/a064/index.m3u8
+#EXTINF:-1 ,TVC
+http://78.130.250.2:8023/play/a03u/index.m3u8
+#EXTINF:-1 ,TVC SUPER
+http://78.130.250.2:8023/play/a03w/index.m3u8
+#EXTINF:-1 ,TVP HD
+http://78.130.250.2:8023/play/a03a/index.m3u8
+#EXTINF:-1 ,TVP INFO HD
+http://78.130.250.2:8023/play/a03b/index.m3u8
+#EXTINF:-1 ,TVS
+http://78.130.250.2:8023/play/a039/index.m3u8
+#EXTINF:-1 ,UNINETTUNO UNIVERSITY TV
+http://78.130.250.2:8023/play/a04p/index.m3u8
+#EXTINF:-1 ,Vatican Media Europa
+http://78.130.250.2:8023/play/a06l/index.m3u8
+#EXTINF:-1 ,VIDEOLINA
+http://78.130.250.2:8023/play/a066/index.m3u8
