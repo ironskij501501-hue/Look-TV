@@ -1,4 +1,4 @@
-//#EXTM3U x-tvg-url="http://epg.one/epg.xml.gz"
+#EXTM3
 #EXTINF:0 group-title="Общие" tvg-id="146" tvg-logo="http://epg.one/img2/983.png" tvg-rec="7",Первый канал FHD
 http://sewv654wfcsdwfi87fwvgbngh.siauliairsavlt.pw/iptv/E4U2DGXEHR9YCA/2402/index.m3u8
 #EXTINF:0 group-title="Общие" tvg-id="146" tvg-logo="http://epg.one/img2/983.png" tvg-rec="0",Первый канал HD orig
