@@ -59,3 +59,58 @@ if __name__ == "__main__":
             send_message(user_id, "❌ Ошибка генерации кода.")
     else:
         send_message(user_id, "Используйте /buy для получения кода.")
+
+import time
+import json
+
+# Функция для получения новых сообщений (polling)
+def get_updates(offset=None):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    params = {"timeout": 30, "offset": offset}
+    resp = requests.get(url, params=params)
+    return resp.json().get("result", [])
+
+def process_updates():
+    last_update_id = None
+    # Загружаем последний обработанный update_id из файла (храним в репозитории)
+    try:
+        with open("last_update.txt", "r") as f:
+            last_update_id = int(f.read().strip())
+    except:
+        last_update_id = None
+
+    updates = get_updates(offset=last_update_id)
+    for update in updates:
+        update_id = update["update_id"]
+        if "message" in update:
+            user_id = update["message"]["from"]["id"]
+            text = update["message"].get("text", "")
+            # Обрабатываем команду /buy
+            if text == "/buy":
+                code = generate_code()
+                if add_code_to_file(code):
+                    send_message(user_id, f"✅ Ваш код: `{code}`")
+                else:
+                    send_message(user_id, "❌ Ошибка генерации кода.")
+            else:
+                send_message(user_id, "Используйте /buy для получения кода.")
+        # Сохраняем последний обработанный update_id
+        if update_id > (last_update_id or 0):
+            last_update_id = update_id
+
+    # Сохраняем last_update_id в файл, чтобы не обрабатывать то же самое дважды
+    if last_update_id:
+        with open("last_update.txt", "w") as f:
+            f.write(str(last_update_id))
+
+if __name__ == "__main__":
+    # Если запущено как скрипт без аргументов, запускаем polling
+    if len(sys.argv) == 1:
+        while True:
+            process_updates()
+            time.sleep(300)  # пауза 5 минут между запусками
+    else:
+        # Иначе обрабатываем единичный вызов (для ручного теста)
+        user_id = sys.argv[1]
+        text = sys.argv[2]
+        # здесь можно обработать одну команду, если нужно
