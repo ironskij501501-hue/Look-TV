@@ -81,34 +81,62 @@ def get_updates(offset=None):
         print(f"ERROR getUpdates: {e}", file=sys.stderr)
         return []
 
+def delete_webhook():
+    """Удаляем вебхук, если он активен"""
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
+    try:
+        resp = requests.get(url, timeout=5)
+        if resp.status_code == 200:
+            print("Webhook deleted successfully", file=sys.stderr)
+        else:
+            print(f"Failed to delete webhook: {resp.text}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error deleting webhook: {e}", file=sys.stderr)
+
 def commit_file(file_path, content, commit_message):
+    """Создаёт или обновляет файл в репозитории"""
     url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{file_path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    # Получаем текущий SHA файла (если существует)
-    resp = requests.get(url, headers=headers)
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+    # Проверяем существование файла
+    get_resp = requests.get(url, headers=headers)
     sha = None
-    if resp.status_code == 200:
-        sha = resp.json()["sha"]
-    elif resp.status_code != 404:
-        print(f"Error checking file {file_path}: {resp.status_code}", file=sys.stderr)
+    if get_resp.status_code == 200:
+        sha = get_resp.json().get("sha")
+        print(f"File {file_path} exists, sha={sha}", file=sys.stderr)
+    elif get_resp.status_code == 404:
+        print(f"File {file_path} does not exist, will create", file=sys.stderr)
+    else:
+        print(f"Unexpected status checking {file_path}: {get_resp.status_code}", file=sys.stderr)
         return False
+
+    # Подготовка данных
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     data = {
         "message": commit_message,
-        "content": encoded
+        "content": encoded,
+        "branch": "main"   # явно указываем ветку
     }
     if sha:
         data["sha"] = sha
-    resp = requests.put(url, headers=headers, json=data)
-    if resp.status_code in [200, 201]:
+
+    put_resp = requests.put(url, headers=headers, json=data)
+    if put_resp.status_code in [200, 201]:
+        print(f"Successfully committed {file_path}", file=sys.stderr)
         return True
     else:
-        print(f"Error committing {file_path}: {resp.status_code} {resp.text}", file=sys.stderr)
+        print(f"Error committing {file_path}: {put_resp.status_code} {put_resp.text}", file=sys.stderr)
         return False
 
-# --- Основная логика обработки обновлений (без цикла) ---
+# --- Основная логика обработки обновлений ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
+
+    # Удаляем вебхук, если он активен (чтобы polling работал)
+    delete_webhook()
+
     last_id = None
     if os.path.exists(LAST_UPDATE_FILE):
         try:
@@ -117,6 +145,7 @@ def process_updates():
             print(f"Last update ID from file: {last_id}", file=sys.stderr)
         except:
             pass
+
     updates = get_updates(offset=last_id)
     if not updates:
         print("No new updates", file=sys.stderr)
@@ -153,6 +182,11 @@ def process_updates():
                 print("Failed to commit last_update.txt", file=sys.stderr)
         except Exception as e:
             print(f"Error saving last_update.txt: {e}", file=sys.stderr)
+
+# --- Точка входа ---
+if __name__ == "__main__":
+    process_updates()
+    print("Done", file=sys.stderr)
 
 # --- Точка входа ---
 if __name__ == "__main__":
