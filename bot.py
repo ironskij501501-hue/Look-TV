@@ -22,6 +22,19 @@ if not TELEGRAM_TOKEN:
     print("ERROR: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
     sys.exit(1)
 
+# --- Удаление вебхука перед использованием getUpdates ---
+def delete_webhook():
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
+    try:
+        resp = requests.get(url, timeout=5)
+        data = resp.json()
+        if data.get("ok"):
+            print("Webhook deleted successfully", file=sys.stderr)
+        else:
+            print(f"Failed to delete webhook: {data}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error deleting webhook: {e}", file=sys.stderr)
+
 # --- GitHub API функции ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
@@ -83,30 +96,23 @@ def get_updates(offset=None):
         return []
 
 def commit_file(file_path, content, commit_message):
-    """Закоммитить файл обратно в репозиторий."""
     url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    # Получаем текущий SHA файла, если он существует
     resp = requests.get(url, headers=headers)
     sha = None
     if resp.status_code == 200:
         sha = resp.json()["sha"]
-    # Кодируем содержимое в base64
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-    data = {
-        "message": commit_message,
-        "content": encoded
-    }
+    data = {"message": commit_message, "content": encoded}
     if sha:
         data["sha"] = sha
     resp = requests.put(url, headers=headers, json=data)
     return resp.status_code in [200, 201]
 
-# --- Основная логика обработки обновлений (без цикла) ---
+# --- Основная логика обработки обновлений ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     last_id = None
-    # Пытаемся прочитать last_update.txt из репозитория (локально он уже есть после checkout)
     if os.path.exists(LAST_UPDATE_FILE):
         try:
             with open(LAST_UPDATE_FILE, "r") as f:
@@ -139,13 +145,11 @@ def process_updates():
         if new_last_id is None or update_id >= new_last_id:
             new_last_id = update_id + 1
 
-    # Сохраняем new_last_id в файл и коммитим в репозиторий
     if new_last_id is not None:
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
                 f.write(str(new_last_id))
             print(f"Saved last_update_id = {new_last_id}", file=sys.stderr)
-            # Коммитим файл в репозиторий, чтобы сохранить состояние для следующего запуска
             if commit_file(LAST_UPDATE_FILE, str(new_last_id), "Update last_update_id"):
                 print("Committed last_update.txt", file=sys.stderr)
             else:
@@ -155,6 +159,7 @@ def process_updates():
 
 # --- Точка входа ---
 if __name__ == "__main__":
-    # Режим polling: обрабатываем обновления один раз и выходим
+    # Удаляем вебхук перед началом работы
+    delete_webhook()
     process_updates()
     print("Done", file=sys.stderr)
