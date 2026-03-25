@@ -11,7 +11,6 @@ CODES_FILE = "codes.txt"
 CODES_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{CODES_FILE}"
 LAST_UPDATE_FILE = "last_update.txt"
 
-# Токены из переменных окружения (заданы в Secrets)
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
@@ -21,19 +20,6 @@ if not GITHUB_TOKEN:
 if not TELEGRAM_TOKEN:
     print("ERROR: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
     sys.exit(1)
-
-# --- Удаление вебхука перед использованием getUpdates ---
-def delete_webhook():
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
-    try:
-        resp = requests.get(url, timeout=5)
-        data = resp.json()
-        if data.get("ok"):
-            print("Webhook deleted successfully", file=sys.stderr)
-        else:
-            print(f"Failed to delete webhook: {data}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error deleting webhook: {e}", file=sys.stderr)
 
 # --- GitHub API функции ---
 def get_codes_file():
@@ -98,18 +84,29 @@ def get_updates(offset=None):
 def commit_file(file_path, content, commit_message):
     url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    # Получаем текущий SHA файла (если существует)
     resp = requests.get(url, headers=headers)
     sha = None
     if resp.status_code == 200:
         sha = resp.json()["sha"]
+    elif resp.status_code != 404:
+        print(f"Error checking file {file_path}: {resp.status_code}", file=sys.stderr)
+        return False
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-    data = {"message": commit_message, "content": encoded}
+    data = {
+        "message": commit_message,
+        "content": encoded
+    }
     if sha:
         data["sha"] = sha
     resp = requests.put(url, headers=headers, json=data)
-    return resp.status_code in [200, 201]
+    if resp.status_code in [200, 201]:
+        return True
+    else:
+        print(f"Error committing {file_path}: {resp.status_code} {resp.text}", file=sys.stderr)
+        return False
 
-# --- Основная логика обработки обновлений ---
+# --- Основная логика обработки обновлений (без цикла) ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     last_id = None
@@ -159,7 +156,5 @@ def process_updates():
 
 # --- Точка входа ---
 if __name__ == "__main__":
-    # Удаляем вебхук перед началом работы
-    delete_webhook()
     process_updates()
     print("Done", file=sys.stderr)
