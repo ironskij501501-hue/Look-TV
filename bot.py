@@ -3,6 +3,7 @@ import os
 import secrets
 import requests
 import base64
+import json
 
 # --- Конфигурация ---
 GITHUB_USER = "ironskij501501-hue"
@@ -30,13 +31,17 @@ def get_codes_file():
         content = base64.b64decode(data["content"]).decode("utf-8")
         return content, data["sha"]
     elif resp.status_code == 404:
+        print("DEBUG: codes.txt not found, will create", file=sys.stderr)
         return "", None
     else:
         print(f"ERROR: get_codes_file status {resp.status_code} {resp.text}", file=sys.stderr)
         return None, None
 
 def update_codes_file(content, sha=None):
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     data = {
         "message": "Update codes.txt",
@@ -45,6 +50,10 @@ def update_codes_file(content, sha=None):
     }
     if sha:
         data["sha"] = sha
+
+    print(f"DEBUG: PUT {CODES_URL}", file=sys.stderr)
+    print(f"DEBUG: data = {json.dumps(data, indent=2)}", file=sys.stderr)
+
     resp = requests.put(CODES_URL, headers=headers, json=data)
     success = resp.status_code in [200, 201]
     if not success:
