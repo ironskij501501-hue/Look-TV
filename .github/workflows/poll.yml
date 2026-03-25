@@ -12,12 +12,10 @@ jobs:
   poll:
     runs-on: ubuntu-latest
     steps:
-      # Клонируем репозиторий, используя PAT для доступа на запись
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
-      # Восстанавливаем last_update.txt из кэша
       - name: Restore last_update.txt from cache
         uses: actions/cache@v4
         with:
@@ -26,23 +24,21 @@ jobs:
           restore-keys: |
             last-update-
 
-      # Устанавливаем Python
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # Устанавливаем зависимости
       - name: Install dependencies
         run: pip install requests
 
-      # Запускаем скрипт бота
       - name: Run bot script
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}   # токен для работы с GitHub API
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GETPLATINUM_SHOP_ID: ${{ secrets.GETPLATINUM_SHOP_ID }}
+          GETPLATINUM_API_KEY: ${{ secrets.GETPLATINUM_API_KEY }}
         run: python bot.py
 
-      # Сохраняем обновлённый last_update.txt в кэш для следующих запусков
       - name: Save last_update.txt to cache
         uses: actions/cache/save@v4
         with:
