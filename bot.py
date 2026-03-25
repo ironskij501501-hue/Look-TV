@@ -3,7 +3,9 @@ import os
 import secrets
 import requests
 import base64
+import time
 
+# --- Конфигурация ---
 GITHUB_USER = "ironskij501501-hue"
 GITHUB_REPO = "LookTV"
 CODES_FILE = "codes.txt"
@@ -20,7 +22,10 @@ if not TELEGRAM_TOKEN:
     print("ERROR: TELEGRAM_BOT_TOKEN not set", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API функции (без коммита last_update) ---
+print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN)}", file=sys.stderr)
+print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN)}", file=sys.stderr)
+
+# --- GitHub API функции ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -44,24 +49,33 @@ def update_codes_file(content, sha=None):
     return resp.status_code in [200, 201]
 
 def generate_code():
-    return f"LOOKTV_{secrets.token_hex(4).upper()}"
+    code = f"LOOKTV_{secrets.token_hex(4).upper()}"
+    print(f"DEBUG: generated code {code}", file=sys.stderr)
+    return code
 
 def add_code_to_file(code):
+    print(f"DEBUG: add_code_to_file({code})", file=sys.stderr)
     content, sha = get_codes_file()
     if content is None:
+        print("DEBUG: content is None", file=sys.stderr)
         return False
     if content and f"{code}:" in content:
+        print("DEBUG: code already exists", file=sys.stderr)
         return False
     new_line = f"{code}:unused"
     new_content = f"{content}\n{new_line}" if content else new_line
-    return update_codes_file(new_content, sha)
+    print(f"DEBUG: new_content length {len(new_content)}", file=sys.stderr)
+    success = update_codes_file(new_content, sha)
+    print(f"DEBUG: update_codes_file result: {success}", file=sys.stderr)
+    return success
 
 # --- Telegram функции ---
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
     try:
-        requests.post(url, json=payload, timeout=5)
+        resp = requests.post(url, json=payload, timeout=5)
+        print(f"DEBUG: send_message response status {resp.status_code}", file=sys.stderr)
     except Exception as e:
         print(f"ERROR sending message: {e}", file=sys.stderr)
 
@@ -84,12 +98,9 @@ def delete_webhook():
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/deleteWebhook"
     try:
         resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            print("Webhook deleted successfully", file=sys.stderr)
-        else:
-            print(f"Failed to delete webhook: {resp.text}", file=sys.stderr)
+        print(f"DEBUG: deleteWebhook response {resp.status_code}", file=sys.stderr)
     except Exception as e:
-        print(f"Error deleting webhook: {e}", file=sys.stderr)
+        print(f"ERROR deleting webhook: {e}", file=sys.stderr)
 
 # --- Основная логика обработки обновлений ---
 def process_updates():
@@ -101,9 +112,9 @@ def process_updates():
         try:
             with open(LAST_UPDATE_FILE, "r") as f:
                 last_id = int(f.read().strip())
-            print(f"Last update ID from file: {last_id}", file=sys.stderr)
-        except:
-            pass
+            print(f"DEBUG: last_id from file = {last_id}", file=sys.stderr)
+        except Exception as e:
+            print(f"DEBUG: could not read last_update.txt: {e}", file=sys.stderr)
 
     updates = get_updates(offset=last_id)
     if not updates:
@@ -134,9 +145,9 @@ def process_updates():
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
                 f.write(str(new_last_id))
-            print(f"Saved last_update_id = {new_last_id}", file=sys.stderr)
+            print(f"DEBUG: saved last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
-            print(f"Error saving last_update.txt: {e}", file=sys.stderr)
+            print(f"ERROR saving last_update.txt: {e}", file=sys.stderr)
 
 # --- Точка входа ---
 if __name__ == "__main__":
