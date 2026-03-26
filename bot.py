@@ -28,7 +28,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API (для codes.txt) ---
+# --- GitHub API для codes.txt ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -229,6 +229,7 @@ def commit_last_update_file(content):
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json"
     }
+    # Получаем текущий SHA, если файл существует
     get_resp = requests.get(url, headers=headers)
     sha = None
     if get_resp.status_code == 200:
@@ -258,6 +259,7 @@ def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
 
+    # Читаем последний обработанный update_id из файла (если он есть)
     last_id = None
     if os.path.exists(LAST_UPDATE_FILE):
         try:
@@ -310,7 +312,7 @@ def process_updates():
                 continue
 
             # Обычный /start – показываем кнопку
-            pay_link, deal_id = init_payment_url(user_id)
+            pay_link, _ = init_payment_url(user_id)
             if pay_link:
                 keyboard = {"inline_keyboard": [[{"text": "💳 Оплатить", "url": pay_link}]]}
                 send_message(
@@ -332,14 +334,17 @@ def process_updates():
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
+    # После обработки всех обновлений сохраняем новый offset
     if max_update_id is not None:
         new_last_id = max_update_id + 1
+        # Записываем локально (для текущего запуска)
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
                 f.write(str(new_last_id))
             print(f"DEBUG: saved local last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR saving last_update.txt locally: {e}", file=sys.stderr)
+        # Коммитим в репозиторий
         commit_last_update_file(str(new_last_id))
     else:
         print("No updates with messages processed, keeping old last_id", file=sys.stderr)
