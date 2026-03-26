@@ -1,9 +1,9 @@
+
 import sys
 import os
 import secrets
 import requests
 import base64
-import json
 import time
 
 # --- Конфигурация ---
@@ -226,6 +226,7 @@ def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
 
+    # Читаем последний обработанный update_id
     last_id = None
     if os.path.exists(LAST_UPDATE_FILE):
         try:
@@ -241,7 +242,7 @@ def process_updates():
         return
 
     print(f"Got {len(updates)} updates", file=sys.stderr)
-    new_last_id = last_id
+    max_update_id = None
 
     for update in updates:
         update_id = update["update_id"]
@@ -254,6 +255,7 @@ def process_updates():
 
         print(f"User {user_id}, text: {text}", file=sys.stderr)
 
+        # Обработка команд
         if text.startswith("/start"):
             parts = text.split()
             param = parts[1] if len(parts) > 1 else None
@@ -297,16 +299,21 @@ def process_updates():
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
-        if new_last_id is None or update_id >= new_last_id:
-            new_last_id = update_id + 1
+        # Запоминаем максимальный update_id среди обработанных сообщений
+        if max_update_id is None or update_id > max_update_id:
+            max_update_id = update_id
 
-    if new_last_id is not None:
+    # Сохраняем новый offset (последний обработанный update_id + 1)
+    if max_update_id is not None:
+        new_last_id = max_update_id + 1
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
                 f.write(str(new_last_id))
             print(f"DEBUG: saved last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR saving last_update.txt: {e}", file=sys.stderr)
+    else:
+        print("No updates with messages processed, keeping old last_id", file=sys.stderr)
 
 if __name__ == "__main__":
     process_updates()
