@@ -5,7 +5,6 @@ import requests
 import base64
 import json
 import time
-import urllib.parse
 
 # --- Конфигурация ---
 GITHUB_USER = "ironskij501501-hue"
@@ -17,25 +16,20 @@ LAST_UPDATE_FILE = "last_update.txt"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-# Данные для GetPlatinum
 GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
-# Правильный базовый URL согласно документации
 GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
-# Используем Bearer авторизацию
-AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN) if TELEGRAM_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: GETPLATINUM_API_KEY present, length={len(GETPLATINUM_API_KEY) if GETPLATINUM_API_KEY else 0}", file=sys.stderr)
 print(f"DEBUG: GETPLATINUM_BASE_URL = {GETPLATINUM_BASE_URL}", file=sys.stderr)
-print(f"DEBUG: AUTH_HEADER keys = {list(AUTH_HEADER.keys())}", file=sys.stderr)
 
 if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API функции (без изменений) ---
+# --- GitHub API ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -51,15 +45,12 @@ def get_codes_file():
         return None, None
 
 def update_codes_file(content, sha=None):
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
     data = {
         "message": "Update codes.txt",
         "content": encoded,
-        "branch": "main"   # если ветка master – замените
+        "branch": "main"
     }
     if sha:
         data["sha"] = sha
@@ -87,15 +78,15 @@ def add_code_to_file(code):
     print(f"DEBUG: new_content length {len(new_content)}", file=sys.stderr)
     return update_codes_file(new_content, sha)
 
-# --- Telegram функции ---
-def send_message(chat_id, text, reply_markup=None):
+# --- Telegram ---
+def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
     try:
         resp = requests.post(url, json=payload, timeout=5)
         print(f"DEBUG: send_message response status {resp.status_code}", file=sys.stderr)
+        if resp.status_code != 200:
+            print(f"ERROR: send_message failed: {resp.text}", file=sys.stderr)
     except Exception as e:
         print(f"ERROR sending message: {e}", file=sys.stderr)
 
@@ -122,23 +113,24 @@ def delete_webhook():
     except Exception as e:
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
-# --- Функции для работы с GetPlatinum ---
+# --- GetPlatinum ---
 def init_payment_url(user_id):
-    headers = AUTH_HEADER.copy()
-    headers["Content-Type"] = "application/json"
-
+    headers = {
+        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
+        "Content-Type": "application/json"
+    }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 10000  # 100 рублей – измените на свою цену в копейках
+    amount = 10000  # 100 RUB
     client_email = f"user{user_id}@looktv.temp"
 
-    # Шаг 1: инициализация заказа
+    # Шаг 1: init-deal
     deal_payload = {
         "dealId": deal_id,
         "currency": "RUB",
         "amount": amount,
         "positions": [
             {
-                "prefix": 12,  # обязательно!
+                "prefix": 12,
                 "name": "Активация LookTV",
                 "price": amount,
                 "quantity": 1,
@@ -166,10 +158,8 @@ def init_payment_url(user_id):
         if not payment_systems:
             print("ERROR: no payment systems available", file=sys.stderr)
             return None, None
-        # Берём первую доступную платёжную систему
         ps = payment_systems[0]
         payment_system_code = ps["code"]
-        # Берём первый метод оплаты внутри системы
         methods = ps.get("methods", [])
         payment_method_code = methods[0]["code"] if methods else None
         print(f"DEBUG: using paymentSystem={payment_system_code}, method={payment_method_code}", file=sys.stderr)
@@ -177,14 +167,14 @@ def init_payment_url(user_id):
         print(f"ERROR: init-deal exception {e}", file=sys.stderr)
         return None, None
 
-    # Шаг 2: инициализация платежа
+    # Шаг 2: init-payment
     payment_payload = {
         "dealId": deal_id,
         "currency": "RUB",
         "amount": amount,
         "paymentSystem": payment_system_code,
         "paymentMethod": payment_method_code,
-        "notificationUrl": "https://google.com",  # можно заменить на любой доступный URL
+        "notificationUrl": "https://google.com",
         "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
         "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
         "customParams": {
@@ -212,8 +202,10 @@ def init_payment_url(user_id):
         return None, None
 
 def check_payment_status(deal_id):
-    headers = AUTH_HEADER.copy()
-    headers["Content-Type"] = "application/json"
+    headers = {
+        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
+        "Content-Type": "application/json"
+    }
     payload = {"dealId": deal_id}
     url = f"{GETPLATINUM_BASE_URL}/status"
     try:
@@ -229,7 +221,7 @@ def check_payment_status(deal_id):
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
-# --- Обработка обновлений ---
+# --- Обработка ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
@@ -267,8 +259,7 @@ def process_updates():
             param = parts[1] if len(parts) > 1 else None
 
             if param and param.startswith("pay_"):
-                # Это возврат после оплаты
-                deal_id = param[4:]  # отрезаем "pay_"
+                deal_id = param[4:]
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
@@ -282,20 +273,15 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start без параметра – показываем кнопку оплаты
+            # Обычный /start – показываем ссылку на оплату
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
-                keyboard = {
-                    "inline_keyboard": [
-                        [{"text": "💳 Оплатить", "url": pay_link}]
-                    ]
-                }
                 send_message(
                     user_id,
-                    "Добро пожаловать в LookTV!\n\n"
-                    "Для получения кода активации нажмите кнопку «Оплатить». "
-                    "После успешной оплаты вы автоматически получите код.",
-                    reply_markup=keyboard
+                    f"Добро пожаловать в LookTV!\n\n"
+                    f"Для получения кода активации перейдите по ссылке и оплатите:\n"
+                    f"{pay_link}\n\n"
+                    f"После успешной оплаты вы автоматически получите код."
                 )
             else:
                 send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
