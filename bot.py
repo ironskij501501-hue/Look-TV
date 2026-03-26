@@ -11,7 +11,6 @@ GITHUB_REPO = "LookTV"
 CODES_FILE = "codes.txt"
 CODES_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{CODES_FILE}"
 LAST_UPDATE_FILE = "last_update.txt"
-LAST_UPDATE_URL = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{LAST_UPDATE_FILE}"
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -29,43 +28,66 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API функции (общие) ---
-def github_get_file(file_url):
+# --- GitHub API функции для работы с файлами ---
+def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    resp = requests.get(file_url, headers=headers)
+    resp = requests.get(CODES_URL, headers=headers)
     if resp.status_code == 200:
         data = resp.json()
         content = base64.b64decode(data["content"]).decode("utf-8")
         return content, data["sha"]
     elif resp.status_code == 404:
+        print("DEBUG: codes.txt not found, will create", file=sys.stderr)
         return "", None
     else:
-        print(f"ERROR: github_get_file status {resp.status_code} {resp.text}", file=sys.stderr)
+        print(f"ERROR: get_codes_file status {resp.status_code} {resp.text}", file=sys.stderr)
         return None, None
-
-def github_put_file(file_url, content, sha=None, commit_message="Update"):
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-    data = {"message": commit_message, "content": encoded, "branch": "main"}
-    if sha:
-        data["sha"] = sha
-    resp = requests.put(file_url, headers=headers, json=data)
-    success = resp.status_code in [200, 201]
-    if not success:
-        print(f"ERROR: github_put_file failed: {resp.status_code} {resp.text}", file=sys.stderr)
-    else:
-        print(f"DEBUG: github_put_file succeeded", file=sys.stderr)
-    return success
-
-# --- Работа с codes.txt ---
-def get_codes_file():
-    content, sha = github_get_file(CODES_URL)
-    if content is None:
-        return None, None
-    return content, sha
 
 def update_codes_file(content, sha=None):
-    return github_put_file(CODES_URL, content, sha, "Update codes.txt")
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+    data = {
+        "message": "Update codes.txt",
+        "content": encoded,
+        "branch": "main"
+    }
+    if sha:
+        data["sha"] = sha
+    resp = requests.put(CODES_URL, headers=headers, json=data)
+    success = resp.status_code in [200, 201]
+    if not success:
+        print(f"ERROR: update_codes_file failed: {resp.status_code} {resp.text}", file=sys.stderr)
+    else:
+        print("DEBUG: update_codes_file succeeded", file=sys.stderr)
+    return success
+
+def commit_last_update_file(content):
+    """Закоммитить last_update.txt в репозиторий через API."""
+    url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{LAST_UPDATE_FILE}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    # Получаем текущий SHA, если файл существует
+    get_resp = requests.get(url, headers=headers)
+    sha = None
+    if get_resp.status_code == 200:
+        sha = get_resp.json().get("sha")
+    elif get_resp.status_code != 404:
+        print(f"ERROR: checking last_update.txt: {get_resp.status_code}", file=sys.stderr)
+        return False
+    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+    data = {
+        "message": "Update last_update.txt",
+        "content": encoded,
+        "branch": "main"
+    }
+    if sha:
+        data["sha"] = sha
+    resp = requests.put(url, headers=headers, json=data)
+    if resp.status_code in [200, 201]:
+        print("DEBUG: Committed last_update.txt", file=sys.stderr)
+        return True
+    else:
+        print(f"ERROR: Failed to commit last_update.txt: {resp.status_code} {resp.text}", file=sys.stderr)
+        return False
 
 def generate_code():
     return f"LOOKTV_{secrets.token_hex(4).upper()}"
@@ -82,20 +104,6 @@ def add_code_to_file(code):
     new_content = f"{content}\n{new_line}" if content else new_line
     print(f"DEBUG: new_content length {len(new_content)}", file=sys.stderr)
     return update_codes_file(new_content, sha)
-
-# --- Работа с last_update.txt ---
-def get_last_update_id():
-    content, sha = github_get_file(LAST_UPDATE_URL)
-    if content is None:
-        return None, None
-    try:
-        last_id = int(content.strip())
-        return last_id, sha
-    except:
-        return None, sha
-
-def save_last_update_id(last_id, sha=None):
-    return github_put_file(LAST_UPDATE_URL, str(last_id), sha, "Update last_update_id")
 
 # --- Telegram ---
 def send_message(chat_id, text):
@@ -240,14 +248,20 @@ def check_payment_status(deal_id):
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
-# --- Обработка обновлений ---
+# --- Обработка ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
 
-    # Получаем последний обработанный update_id из репозитория
-    last_id, last_sha = get_last_update_id()
-    print(f"DEBUG: last_id from repo = {last_id}, sha = {last_sha}", file=sys.stderr)
+    # Читаем последний обработанный update_id из файла (локально, после checkout)
+    last_id = None
+    if os.path.exists(LAST_UPDATE_FILE):
+        try:
+            with open(LAST_UPDATE_FILE, "r") as f:
+                last_id = int(f.read().strip())
+            print(f"DEBUG: last_id from file = {last_id}", file=sys.stderr)
+        except:
+            pass
 
     updates = get_updates(offset=last_id)
     if not updates:
@@ -316,15 +330,22 @@ def process_updates():
         if max_update_id is None or update_id > max_update_id:
             max_update_id = update_id
 
-    # Сохраняем новый offset (последний обработанный update_id + 1) в репозиторий
+    # Сохраняем новый offset (последний обработанный update_id + 1) в локальный файл и коммитим в репозиторий
     if max_update_id is not None:
         new_last_id = max_update_id + 1
-        if save_last_update_id(new_last_id, last_sha):
-            print(f"DEBUG: saved new last_update_id = {new_last_id}", file=sys.stderr)
-        else:
-            print(f"ERROR: failed to save last_update_id", file=sys.stderr)
+        try:
+            with open(LAST_UPDATE_FILE, "w") as f:
+                f.write(str(new_last_id))
+            print(f"DEBUG: saved last_update_id = {new_last_id}", file=sys.stderr)
+            # Коммитим файл в репозиторий
+            if commit_last_update_file(str(new_last_id)):
+                print("DEBUG: last_update.txt committed to repo", file=sys.stderr)
+            else:
+                print("WARNING: failed to commit last_update.txt, next run may reprocess messages", file=sys.stderr)
+        except Exception as e:
+            print(f"ERROR saving last_update.txt: {e}", file=sys.stderr)
     else:
-        print("No updates with messages processed", file=sys.stderr)
+        print("No updates with messages processed, keeping old last_id", file=sys.stderr)
 
 if __name__ == "__main__":
     process_updates()
