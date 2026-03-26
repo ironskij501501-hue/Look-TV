@@ -1,9 +1,11 @@
+
 import sys
 import os
 import secrets
 import requests
 import base64
 import json
+import time
 import urllib.parse
 
 # --- Конфигурация ---
@@ -16,10 +18,10 @@ LAST_UPDATE_FILE = "last_update.txt"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-# Данные для getplatinum (замените на свои)
-GETPLATINUM_SHOP_ID = os.environ.get("GETPLATINUM_SHOP_ID", "your_shop_id")
-GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY", "your_api_key")
-GETPLATINUM_PAY_URL = "https://getplatinum.ru/pay"  # предположительно
+# Данные для getplatinum
+GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
+GETPLATINUM_ACCOUNT = "iptvclub"  # ваш аккаунт из URL
+GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public"
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN) if TELEGRAM_TOKEN else 0}", file=sys.stderr)
@@ -52,7 +54,7 @@ def update_codes_file(content, sha=None):
     data = {
         "message": "Update codes.txt",
         "content": encoded,
-        "branch": "main"  # если ветка master, замените на "master"
+        "branch": "main"   # если ветка master – замените
     }
     if sha:
         data["sha"] = sha
@@ -115,45 +117,94 @@ def delete_webhook():
     except Exception as e:
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
-# --- Функции для работы с getplatinum ---
-def create_payment_link(user_id):
-    """Генерирует ссылку на оплату через getplatinum"""
-    # Формируем уникальный номер заказа (можно использовать user_id + timestamp)
-    order_id = f"order_{user_id}_{secrets.token_hex(4)}"
-    # Ссылка на оплату: параметры зависят от документации getplatinum
-    # Пример для гипотетического API:
-    params = {
-        "shop_id": GETPLATINUM_SHOP_ID,
-        "order_id": order_id,
-        "amount": "100",  # сумма, например 100 рублей
-        "desc": "Активация LookTV",
-        "user_id": user_id,  # передаём для обратной связи
-        "return_url": f"https://t.me/MyBot?start=pay_{order_id}"  # deep link после оплаты
+# --- Функции для работы с GetPlatinum ---
+def init_payment_url(user_id):
+    """
+    Создаёт платёжную ссылку через метод init-payment-url
+    Возвращает (payment_url, deal_id) или (None, None) в случае ошибки
+    """
+    headers = {
+        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
+        "Content-Type": "application/json"
     }
-    # Предположим, что getplatinum использует GET-параметры
-    query = urllib.parse.urlencode(params)
-    link = f"{GETPLATINUM_PAY_URL}?{query}"
-    return link, order_id
+    # Генерируем уникальный ID заказа (используем user_id + timestamp)
+    deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
+    # Сумма в копейках (например, 100 руб = 10000) – измените на свою цену
+    amount = 10000  # 100 рублей
+    # Email пользователя – временно используем заглушку
+    client_email = f"user{user_id}@looktv.temp"
 
-def check_payment_status(order_id):
-    """Проверяет статус платежа через API getplatinum"""
-    # Здесь должен быть запрос к API getplatinum с использованием GETPLATINUM_API_KEY
-    # Пример для гипотетического API:
-    url = "https://getplatinum.ru/api/check"
-    params = {
-        "shop_id": GETPLATINUM_SHOP_ID,
-        "order_id": order_id,
-        "api_key": GETPLATINUM_API_KEY
+    payload = {
+        "dealId": deal_id,
+        "currency": "RUB",
+        "amount": amount,
+        "positions": [
+            {
+                "name": "Активация LookTV",
+                "price": amount,
+                "quantity": 1,
+                "vat": "none"
+            }
+        ],
+        "clientParams": {
+            "clientId": str(user_id),
+            "email": client_email
+        },
+        "notificationUrl": "https://example.com/placeholder",  # можно не использовать, т.к. мы проверяем через /status
+        "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
+        "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
+        "customParams": {
+            "user_id": user_id,
+            "deal_id": deal_id
+        }
     }
+
+    url = f"{GETPLATINUM_BASE_URL}/init-payment-url"
     try:
-        resp = requests.get(url, params=params, timeout=10)
-        data = resp.json()
-        if data.get("status") == "success":
-            return True
+        resp = requests.post(url, headers=headers, json=payload, timeout=10)
+        print(f"DEBUG: getplatinum init response {resp.status_code}", file=sys.stderr)
+        print(f"DEBUG: getplatinum init body {resp.text}", file=sys.stderr)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("formUrl"):
+                return data["formUrl"], deal_id
+            else:
+                print(f"ERROR: getplatinum no formUrl in response", file=sys.stderr)
+                return None, None
+        else:
+            print(f"ERROR: getplatinum init failed {resp.status_code}", file=sys.stderr)
+            return None, None
+    except Exception as e:
+        print(f"ERROR: getplatinum init exception {e}", file=sys.stderr)
+        return None, None
+
+def check_payment_status(deal_id):
+    """
+    Проверяет статус платежа по dealId через метод /status
+    Возвращает True, если платёж успешно завершён
+    """
+    headers = {
+        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "dealId": deal_id
+    }
+    url = f"{GETPLATINUM_BASE_URL}/status"
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=10)
+        print(f"DEBUG: getplatinum status response {resp.status_code}", file=sys.stderr)
+        print(f"DEBUG: getplatinum status body {resp.text}", file=sys.stderr)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("isSuccess") is True:
+                return True
+            else:
+                return False
         else:
             return False
     except Exception as e:
-        print(f"ERROR checking payment: {e}", file=sys.stderr)
+        print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
 # --- Обработка обновлений ---
@@ -189,45 +240,50 @@ def process_updates():
 
         print(f"User {user_id}, text: {text}", file=sys.stderr)
 
-        # --- Обработка команды /start ---
+        # --- Обработка команды /start с возможным deep link ---
         if text.startswith("/start"):
-            # Разбираем возможный параметр deep link
             parts = text.split()
             param = parts[1] if len(parts) > 1 else None
 
             if param and param.startswith("pay_"):
                 # Это возврат после оплаты
-                order_id = param[4:]  # убираем "pay_"
-                if check_payment_status(order_id):
-                    # Оплата подтверждена, генерируем код
+                deal_id = param[4:]  # отрезаем "pay_"
+                # Проверяем статус платежа
+                if check_payment_status(deal_id):
+                    # Генерируем код
                     code = generate_code()
                     if add_code_to_file(code):
                         send_message(user_id, f"✅ Оплата подтверждена!\nВаш код активации: `{code}`")
                     else:
                         send_message(user_id, "❌ Ошибка генерации кода. Обратитесь к администратору.")
                 else:
-                    send_message(user_id, "❌ Оплата не найдена или не подтверждена. Если вы оплатили, подождите несколько минут и повторите команду /start. Или напишите /buy для получения кода.")
-                return  # после обработки возврата выходим (чтобы не показывать меню)
+                    send_message(user_id, "❌ Оплата не найдена или не подтверждена. Если вы оплатили, подождите несколько минут и снова нажмите /start. Или напишите /buy для получения кода.")
+                # После обработки не показываем меню
+                continue
+            elif param and param.startswith("pay_failed_"):
+                send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
+                continue
 
-            # Обычный /start без параметра или с неизвестным параметром — показываем кнопку
-            # Формируем ссылку на оплату
-            pay_link, order_id = create_payment_link(user_id)
-            # Создаём inline-кнопку с URL
-            keyboard = {
-                "inline_keyboard": [
-                    [{"text": "💳 Оплатить", "url": pay_link}]
-                ]
-            }
-            send_message(
-                user_id,
-                "Добро пожаловать в LookTV!\n\n"
-                "Для получения кода активации нажмите кнопку «Оплатить». "
-                "После успешной оплаты вы автоматически получите код.",
-                reply_markup=keyboard
-            )
+            # Обычный /start без параметра – показываем кнопку оплаты
+            pay_link, deal_id = init_payment_url(user_id)
+            if pay_link:
+                keyboard = {
+                    "inline_keyboard": [
+                        [{"text": "💳 Оплатить", "url": pay_link}]
+                    ]
+                }
+                send_message(
+                    user_id,
+                    "Добро пожаловать в LookTV!\n\n"
+                    "Для получения кода активации нажмите кнопку «Оплатить». "
+                    "После успешной оплаты вы автоматически получите код.",
+                    reply_markup=keyboard
+                )
+            else:
+                send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
             continue
 
-        # --- Обработка команды /buy (оставляем для ручного режима) ---
+        # --- Обработка команды /buy (оставляем для ручного теста) ---
         if text == "/buy":
             code = generate_code()
             if add_code_to_file(code):
