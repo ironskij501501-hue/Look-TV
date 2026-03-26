@@ -22,7 +22,7 @@ GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
 
 # Выберите вариант: 1 – с /public и Bearer, 2 – без /public и Bearer, 3 – X-API-Key без /public
-AUTH_VARIANT = 2  # меняйте 1, 2, 3
+AUTH_VARIANT = 3  # меняйте 1, 2, 3
 
 if AUTH_VARIANT == 1:
     GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public"
