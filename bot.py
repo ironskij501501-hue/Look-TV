@@ -121,11 +121,10 @@ def init_payment_url(user_id):
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 100  # 100 RUB
+    amount = 100  # 100 RUB – измените на свою цену в копейках
     client_email = f"user{user_id}@looktv.temp"
 
-    # Шаг 1: init-deal
-    deal_payload = {
+    payload = {
         "dealId": deal_id,
         "currency": "RUB",
         "amount": amount,
@@ -141,31 +140,34 @@ def init_payment_url(user_id):
         "clientParams": {
             "clientId": str(user_id),
             "email": client_email
+        },
+        "notificationUrl": "https://google.com",  # можно заменить на ваш URL
+        "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
+        "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
+        "customParams": {
+            "user_id": user_id,
+            "deal_id": deal_id
         }
     }
-    url_deal = f"{GETPLATINUM_BASE_URL}/init-deal"
+
+    url = f"{GETPLATINUM_BASE_URL}/init-payment-url"
     try:
-        resp = requests.post(url_deal, headers=headers, json=deal_payload, timeout=10)
-        print(f"DEBUG: getplatinum init-deal response {resp.status_code}", file=sys.stderr)
-        print(f"DEBUG: getplatinum init-deal body {resp.text}", file=sys.stderr)
-        if resp.status_code != 200:
-            print(f"ERROR: init-deal failed with status {resp.status_code}", file=sys.stderr)
+        resp = requests.post(url, headers=headers, json=payload, timeout=10)
+        print(f"DEBUG: getplatinum init-payment-url response {resp.status_code}", file=sys.stderr)
+        print(f"DEBUG: getplatinum init-payment-url body {resp.text}", file=sys.stderr)
+        if resp.status_code == 200:
+            data = resp.json()
+            form_url = data.get("formUrl")
+            if form_url:
+                return form_url, deal_id
+            else:
+                print(f"ERROR: no formUrl in response", file=sys.stderr)
+                return None, None
+        else:
+            print(f"ERROR: init-payment-url failed {resp.status_code}", file=sys.stderr)
             return None, None
-        deal_data = resp.json()
-        if deal_data.get("errorCode") != 0:
-            print(f"ERROR: init-deal returned error {deal_data}", file=sys.stderr)
-            return None, None
-        payment_systems = deal_data.get("paymentSystems", [])
-        if not payment_systems:
-            print("ERROR: no payment systems available", file=sys.stderr)
-            return None, None
-        ps = payment_systems[0]
-        payment_system_code = ps["code"]
-        methods = ps.get("methods", [])
-        payment_method_code = methods[0]["code"] if methods else None
-        print(f"DEBUG: using paymentSystem={payment_system_code}, method={payment_method_code}", file=sys.stderr)
     except Exception as e:
-        print(f"ERROR: init-deal exception {e}", file=sys.stderr)
+        print(f"ERROR: init-payment-url exception {e}", file=sys.stderr)
         return None, None
 
     # Шаг 2: init-payment
