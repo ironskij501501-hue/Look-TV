@@ -17,24 +17,23 @@ LAST_UPDATE_FILE = "last_update.txt"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
+# Данные для getplatinum
 GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
+# Используем полный базовый URL согласно документации
+GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
 
-# Выберите вариант: 1 – с /public и Bearer, 2 – без /public и Bearer, 3 – X-API-Key без /public
-# Теперь пробуем полный URL с /pay
-AUTH_VARIANT = 2  # используем Bearer
+# Выбираем вариант авторизации (2 = Bearer, без дополнительного /public)
+AUTH_VARIANT = 2
 
 if AUTH_VARIANT == 1:
-    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
+    # Не используется, оставлен для совместимости
     AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
 elif AUTH_VARIANT == 2:
-    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
     AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
 elif AUTH_VARIANT == 3:
-    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
     AUTH_HEADER = {"X-API-Key": GETPLATINUM_API_KEY}
 else:
-    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
     AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
@@ -47,7 +46,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API функции (без изменений) ---
+# --- GitHub API функции ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -134,7 +133,7 @@ def delete_webhook():
     except Exception as e:
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
-# --- Функции для работы с GetPlatinum (двухэтапный, с использованием AUTH_HEADER) ---
+# --- Функции для работы с GetPlatinum ---
 def init_payment_url(user_id):
     headers = AUTH_HEADER.copy()
     headers["Content-Type"] = "application/json"
@@ -150,6 +149,7 @@ def init_payment_url(user_id):
         "amount": amount,
         "positions": [
             {
+                "prefix": 12,           # категория "Курс"
                 "name": "Активация LookTV",
                 "price": amount,
                 "quantity": 1,
@@ -238,7 +238,7 @@ def check_payment_status(deal_id):
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
-# --- Обработка обновлений (без изменений) ---
+# --- Обработка обновлений ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
