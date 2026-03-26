@@ -28,7 +28,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API ---
+# --- GitHub API (для codes.txt) ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -121,7 +121,7 @@ def init_payment_url(user_id):
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 100  # 10 рублей – для теста, измените на свою цену
+    amount = 100  # 100 RUB – измените на свою цену
     client_email = f"user{user_id}@looktv.temp"
 
     payload = {
@@ -190,7 +190,38 @@ def check_payment_status(deal_id):
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
-# --- Обработка обновлений (без коммита last_update.txt) ---
+# --- Функция для коммита last_update.txt ---
+def commit_last_update_file(content):
+    url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{LAST_UPDATE_FILE}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+    get_resp = requests.get(url, headers=headers)
+    sha = None
+    if get_resp.status_code == 200:
+        sha = get_resp.json().get("sha")
+    elif get_resp.status_code != 404:
+        print(f"Unexpected status checking {LAST_UPDATE_FILE}: {get_resp.status_code}", file=sys.stderr)
+        return False
+
+    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+    data = {
+        "message": "Update last_update.txt",
+        "content": encoded,
+        "branch": "main"
+    }
+    if sha:
+        data["sha"] = sha
+    put_resp = requests.put(url, headers=headers, json=data)
+    if put_resp.status_code in [200, 201]:
+        print(f"DEBUG: committed {LAST_UPDATE_FILE}", file=sys.stderr)
+        return True
+    else:
+        print(f"ERROR: failed to commit {LAST_UPDATE_FILE}: {put_resp.status_code} {put_resp.text}", file=sys.stderr)
+        return False
+
+# --- Обработка ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
@@ -232,6 +263,7 @@ def process_updates():
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
+                        # Кнопка с каналом
                         keyboard = {
                             "inline_keyboard": [
                                 [{"text": "🔗 Присоединиться к каналу", "url": "https://t.me/club_iptv"}]
@@ -239,7 +271,9 @@ def process_updates():
                         }
                         send_message(
                             user_id,
-                            f"✅ Оплата подтверждена!\n\nВаш код активации: `{code}`\n\nПосле активации вы получите доступ к каналу.",
+                            f"✅ Оплата подтверждена!\n\n"
+                            f"Ваш код активации: `{code}`\n\n"
+                            f"После активации вы получите доступ к каналу.",
                             reply_markup=keyboard
                         )
                     else:
@@ -261,7 +295,8 @@ def process_updates():
                 }
                 send_message(
                     user_id,
-                    "Добро пожаловать в LookTV!\n\nНажмите кнопку ниже, чтобы перейти к оплате. Вы сможете выбрать удобный способ оплаты.",
+                    "Добро пожаловать в LookTV!\n\n"
+                    "Нажмите кнопку ниже, чтобы перейти к оплате. Вы сможете выбрать удобный способ оплаты.",
                     reply_markup=keyboard
                 )
             else:
@@ -286,6 +321,7 @@ def process_updates():
             print(f"DEBUG: saved local last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR saving last_update.txt locally: {e}", file=sys.stderr)
+        commit_last_update_file(str(new_last_id))
     else:
         print("No updates with messages processed, keeping old last_id", file=sys.stderr)
 
