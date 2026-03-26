@@ -114,14 +114,14 @@ def delete_webhook():
     except Exception as e:
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
-# --- GetPlatinum ---
+# --- GetPlatinum: универсальная ссылка через init-payment-url ---
 def init_payment_url(user_id):
     headers = {
         "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 100  # 100 RUB – измените на свою цену в копейках
+    amount = 10000  # 100 RUB – измените на свою цену
     client_email = f"user{user_id}@looktv.temp"
 
     payload = {
@@ -170,40 +170,6 @@ def init_payment_url(user_id):
         print(f"ERROR: init-payment-url exception {e}", file=sys.stderr)
         return None, None
 
-    # Шаг 2: init-payment
-    payment_payload = {
-        "dealId": deal_id,
-        "currency": "RUB",
-        "amount": amount,
-        "paymentSystem": payment_system_code,
-        "paymentMethod": payment_method_code,
-        "notificationUrl": "https://google.com",
-        "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
-        "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
-        "customParams": {
-            "user_id": user_id,
-            "deal_id": deal_id
-        }
-    }
-    url_payment = f"{GETPLATINUM_BASE_URL}/init-payment"
-    try:
-        resp = requests.post(url_payment, headers=headers, json=payment_payload, timeout=10)
-        print(f"DEBUG: getplatinum init-payment response {resp.status_code}", file=sys.stderr)
-        print(f"DEBUG: getplatinum init-payment body {resp.text}", file=sys.stderr)
-        if resp.status_code != 200:
-            print(f"ERROR: init-payment failed with status {resp.status_code}", file=sys.stderr)
-            return None, None
-        payment_data = resp.json()
-        form_url = payment_data.get("formUrl")
-        if form_url:
-            return form_url, deal_id
-        else:
-            print(f"ERROR: no formUrl in response {payment_data}", file=sys.stderr)
-            return None, None
-    except Exception as e:
-        print(f"ERROR: init-payment exception {e}", file=sys.stderr)
-        return None, None
-
 def check_payment_status(deal_id):
     headers = {
         "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
@@ -224,7 +190,7 @@ def check_payment_status(deal_id):
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
-# --- Функция для коммита last_update.txt в репозиторий ---
+# --- Функция для коммита last_update.txt ---
 def commit_last_update_file(content):
     url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{LAST_UPDATE_FILE}"
     headers = {
@@ -288,7 +254,7 @@ def process_updates():
 
         print(f"User {user_id}, text: {text}", file=sys.stderr)
 
-        if text.startswith("/start"):
+        if text.startswith("/start") or text.startswith("/старт"):
             parts = text.split()
             param = parts[1] if len(parts) > 1 else None
 
@@ -297,7 +263,19 @@ def process_updates():
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
-                        send_message(user_id, f"✅ Оплата подтверждена!\nВаш код активации: `{code}`")
+                        # Кнопка с каналом
+                        keyboard = {
+                            "inline_keyboard": [
+                                [{"text": "🔗 Присоединиться к каналу", "url": "https://t.me/club_iptv"}]
+                            ]
+                        }
+                        send_message(
+                            user_id,
+                            f"✅ Оплата подтверждена!\n\n"
+                            f"Ваш код активации: `{code}`\n\n"
+                            f"После активации вы получите доступ к каналу.",
+                            reply_markup=keyboard
+                        )
                     else:
                         send_message(user_id, "❌ Ошибка генерации кода. Обратитесь к администратору.")
                 else:
@@ -307,7 +285,7 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start – отправляем кнопку с оплатой
+            # Обычный /start – создаём универсальную ссылку
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
                 keyboard = {
@@ -317,14 +295,15 @@ def process_updates():
                 }
                 send_message(
                     user_id,
-                    "Добро пожаловать в LookTV!\n\nНажмите кнопку ниже, чтобы оплатить. После успешной оплаты вы автоматически получите код активации.",
+                    "Добро пожаловать в LookTV!\n\n"
+                    "Нажмите кнопку ниже, чтобы перейти к оплате. Вы сможете выбрать удобный способ оплаты.",
                     reply_markup=keyboard
                 )
             else:
                 send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
             continue
 
-        if text == "/buy":
+        if text == "/buy" or text == "/купить":
             code = generate_code()
             if add_code_to_file(code):
                 send_message(user_id, f"✅ Ваш код активации: `{code}`")
