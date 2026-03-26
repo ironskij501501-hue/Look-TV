@@ -121,7 +121,7 @@ def init_payment_url(user_id):
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 100  # 100 RUB – измените на свою цену в копейках
+    amount = 100000  # 1000 RUB – измените на свою цену в копейках
     client_email = f"user{user_id}@looktv.temp"
 
     payload = {
