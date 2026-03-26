@@ -28,7 +28,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API ---
+# --- GitHub API (для codes.txt) ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -78,11 +78,9 @@ def add_code_to_file(code):
     return update_codes_file(new_content, sha)
 
 # --- Telegram ---
-def send_message(chat_id, text, reply_markup=None):
+def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
     try:
         resp = requests.post(url, json=payload, timeout=5)
         print(f"DEBUG: send_message response status {resp.status_code}", file=sys.stderr)
@@ -121,10 +119,11 @@ def init_payment_url(user_id):
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 1000  # 10 рублей – для теста (замените на нужную сумму в копейках)
+    amount = 1000  # 100 RUB
     client_email = f"user{user_id}@looktv.temp"
 
-    payload = {
+    # Шаг 1: init-deal
+    deal_payload = {
         "dealId": deal_id,
         "currency": "RUB",
         "amount": amount,
@@ -140,7 +139,40 @@ def init_payment_url(user_id):
         "clientParams": {
             "clientId": str(user_id),
             "email": client_email
-        },
+        }
+    }
+    url_deal = f"{GETPLATINUM_BASE_URL}/init-deal"
+    try:
+        resp = requests.post(url_deal, headers=headers, json=deal_payload, timeout=10)
+        print(f"DEBUG: getplatinum init-deal response {resp.status_code}", file=sys.stderr)
+        print(f"DEBUG: getplatinum init-deal body {resp.text}", file=sys.stderr)
+        if resp.status_code != 200:
+            print(f"ERROR: init-deal failed with status {resp.status_code}", file=sys.stderr)
+            return None, None
+        deal_data = resp.json()
+        if deal_data.get("errorCode") != 0:
+            print(f"ERROR: init-deal returned error {deal_data}", file=sys.stderr)
+            return None, None
+        payment_systems = deal_data.get("paymentSystems", [])
+        if not payment_systems:
+            print("ERROR: no payment systems available", file=sys.stderr)
+            return None, None
+        ps = payment_systems[0]
+        payment_system_code = ps["code"]
+        methods = ps.get("methods", [])
+        payment_method_code = methods[0]["code"] if methods else None
+        print(f"DEBUG: using paymentSystem={payment_system_code}, method={payment_method_code}", file=sys.stderr)
+    except Exception as e:
+        print(f"ERROR: init-deal exception {e}", file=sys.stderr)
+        return None, None
+
+    # Шаг 2: init-payment
+    payment_payload = {
+        "dealId": deal_id,
+        "currency": "RUB",
+        "amount": amount,
+        "paymentSystem": payment_system_code,
+        "paymentMethod": payment_method_code,
         "notificationUrl": "https://google.com",
         "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
         "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
@@ -149,25 +181,23 @@ def init_payment_url(user_id):
             "deal_id": deal_id
         }
     }
-
-    url = f"{GETPLATINUM_BASE_URL}/init-payment-url"
+    url_payment = f"{GETPLATINUM_BASE_URL}/init-payment"
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        print(f"DEBUG: getplatinum init-payment-url response {resp.status_code}", file=sys.stderr)
-        print(f"DEBUG: getplatinum init-payment-url body {resp.text}", file=sys.stderr)
-        if resp.status_code == 200:
-            data = resp.json()
-            form_url = data.get("formUrl")
-            if form_url:
-                return form_url, deal_id
-            else:
-                print(f"ERROR: no formUrl in response", file=sys.stderr)
-                return None, None
+        resp = requests.post(url_payment, headers=headers, json=payment_payload, timeout=10)
+        print(f"DEBUG: getplatinum init-payment response {resp.status_code}", file=sys.stderr)
+        print(f"DEBUG: getplatinum init-payment body {resp.text}", file=sys.stderr)
+        if resp.status_code != 200:
+            print(f"ERROR: init-payment failed with status {resp.status_code}", file=sys.stderr)
+            return None, None
+        payment_data = resp.json()
+        form_url = payment_data.get("formUrl")
+        if form_url:
+            return form_url, deal_id
         else:
-            print(f"ERROR: init-payment-url failed with status {resp.status_code}", file=sys.stderr)
+            print(f"ERROR: no formUrl in response {payment_data}", file=sys.stderr)
             return None, None
     except Exception as e:
-        print(f"ERROR: init-payment-url exception {e}", file=sys.stderr)
+        print(f"ERROR: init-payment exception {e}", file=sys.stderr)
         return None, None
 
 def check_payment_status(deal_id):
@@ -190,11 +220,44 @@ def check_payment_status(deal_id):
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
+# --- Функция для коммита last_update.txt в репозиторий ---
+def commit_last_update_file(content):
+    url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{LAST_UPDATE_FILE}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+    # Получаем текущий SHA, если файл существует
+    get_resp = requests.get(url, headers=headers)
+    sha = None
+    if get_resp.status_code == 200:
+        sha = get_resp.json().get("sha")
+    elif get_resp.status_code != 404:
+        print(f"Unexpected status checking {LAST_UPDATE_FILE}: {get_resp.status_code}", file=sys.stderr)
+        return False
+
+    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+    data = {
+        "message": "Update last_update.txt",
+        "content": encoded,
+        "branch": "main"
+    }
+    if sha:
+        data["sha"] = sha
+    put_resp = requests.put(url, headers=headers, json=data)
+    if put_resp.status_code in [200, 201]:
+        print(f"DEBUG: committed {LAST_UPDATE_FILE}", file=sys.stderr)
+        return True
+    else:
+        print(f"ERROR: failed to commit {LAST_UPDATE_FILE}: {put_resp.status_code} {put_resp.text}", file=sys.stderr)
+        return False
+
 # --- Обработка ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
 
+    # Читаем последний обработанный update_id
     last_id = None
     if os.path.exists(LAST_UPDATE_FILE):
         try:
@@ -210,6 +273,8 @@ def process_updates():
         return
 
     print(f"Got {len(updates)} updates", file=sys.stderr)
+
+    # Определяем максимальный update_id среди всех полученных обновлений
     max_update_id = max(update["update_id"] for update in updates) if updates else None
 
     for update in updates:
@@ -223,6 +288,7 @@ def process_updates():
 
         print(f"User {user_id}, text: {text}", file=sys.stderr)
 
+        # Обработка команд
         if text.startswith("/start"):
             parts = text.split()
             param = parts[1] if len(parts) > 1 else None
@@ -232,31 +298,28 @@ def process_updates():
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
-                        keyboard = {"inline_keyboard": [[{"text": "Перейти в канал", "url": "https://t.me/club_iptv"}]]}
-                        send_message(user_id,
-                                     f"✅ Оплата подтверждена!\nВаш код активации: `{code}`",
-                                     reply_markup=keyboard)
+                        send_message(user_id, f"✅ Оплата подтверждена!\nВаш код активации: `{code}`")
                     else:
                         send_message(user_id, "❌ Ошибка генерации кода. Обратитесь к администратору.")
                 else:
-                    send_message(user_id,
-                                 "❌ Оплата не найдена или не подтверждена. Если вы оплатили, подождите несколько минут и снова нажмите /start.")
+                    send_message(user_id, "❌ Оплата не найдена или не подтверждена. Если вы оплатили, подождите несколько минут и снова нажмите /start. Или напишите /buy для получения кода.")
                 continue
             elif param and param.startswith("pay_failed_"):
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start – создаём ссылку на оплату и отправляем кнопку
+            # Обычный /start – показываем ссылку на оплату
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
-                keyboard = {"inline_keyboard": [[{"text": "💳 Оплатить", "url": pay_link}]]}
                 send_message(
                     user_id,
-                    "Добро пожаловать в LookTV!\n\nНажмите кнопку ниже, чтобы оплатить. После оплаты вы получите код.",
-                    reply_markup=keyboard
+                    f"Добро пожаловать в LookTV!\n\n"
+                    f"Для получения кода активации перейдите по ссылке и оплатите:\n"
+                    f"{pay_link}\n\n"
+                    f"После успешной оплаты вы автоматически получите код."
                 )
             else:
-                send_message(user_id, "❌ Ошибка создания платёжной ссылки. Попробуйте позже.")
+                send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
             continue
 
         if text == "/buy":
@@ -269,9 +332,7 @@ def process_updates():
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
-        if max_update_id is None or update_id >= max_update_id:
-            max_update_id = update_id + 1
-
+    # После обработки всех обновлений сохраняем новый offset
     if max_update_id is not None:
         new_last_id = max_update_id + 1
         try:
@@ -280,6 +341,8 @@ def process_updates():
             print(f"DEBUG: saved local last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR saving last_update.txt locally: {e}", file=sys.stderr)
+        # Коммитим в репозиторий
+        commit_last_update_file(str(new_last_id))
     else:
         print("No updates with messages processed, keeping old last_id", file=sys.stderr)
 
