@@ -131,7 +131,7 @@ def init_payment_url(user_id):
         "positions": [
             {
                 "prefix": 12,
-                "name": "Активация LookTV",
+                "name": "Членский взнос в закрытый клуб",
                 "price": amount,
                 "quantity": 1,
                 "vat": "none"
