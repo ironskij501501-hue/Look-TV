@@ -2,11 +2,8 @@ name: Poll Telegram updates
 
 on:
   schedule:
-    - cron: '* * * * *'
+    - cron: '* * * * *'   # каждую минуту
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   poll:
@@ -20,9 +17,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: last_update.txt
-          key: last-update-${{ github.run_id }}
+          key: last-update-cache-v3
           restore-keys: |
-            last-update-
+            last-update-cache-v3
 
       - uses: actions/setup-python@v5
         with:
@@ -35,7 +32,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          GETPLATINUM_SHOP_ID: ${{ secrets.GETPLATINUM_SHOP_ID }}
           GETPLATINUM_API_KEY: ${{ secrets.GETPLATINUM_API_KEY }}
         run: python bot.py
 
@@ -43,4 +39,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: last_update.txt
-          key: last-update-${{ github.run_id }}
+          key: last-update-cache-v3
