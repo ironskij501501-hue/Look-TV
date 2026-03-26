@@ -4,6 +4,8 @@ import secrets
 import requests
 import base64
 import time
+import json
+import urllib.parse
 
 # --- Конфигурация ---
 GITHUB_USER = "ironskij501501-hue"
@@ -91,6 +93,18 @@ def send_message(chat_id, text, reply_markup=None):
     except Exception as e:
         print(f"ERROR sending message: {e}", file=sys.stderr)
 
+def answer_callback(callback_id, text=None, show_alert=False):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/answerCallbackQuery"
+    payload = {"callback_query_id": callback_id}
+    if text:
+        payload["text"] = text
+        payload["show_alert"] = show_alert
+    try:
+        resp = requests.post(url, json=payload, timeout=5)
+        print(f"DEBUG: answer_callback response status {resp.status_code}", file=sys.stderr)
+    except Exception as e:
+        print(f"ERROR answering callback: {e}", file=sys.stderr)
+
 def get_updates(offset=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
     params = {"timeout": 10, "offset": offset}
@@ -115,16 +129,16 @@ def delete_webhook():
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
 # --- GetPlatinum ---
-def init_payment_url(user_id):
+def init_deal(user_id):
+    """Создаёт заказ и возвращает список доступных способов оплаты, а также deal_id."""
     headers = {
         "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 1000  # 100 RUB
+    amount = 1000  # 10 рублей – для теста
     client_email = f"user{user_id}@looktv.temp"
 
-    # Шаг 1: init-deal
     deal_payload = {
         "dealId": deal_id,
         "currency": "RUB",
@@ -147,22 +161,27 @@ def init_payment_url(user_id):
     try:
         resp = requests.post(url_deal, headers=headers, json=deal_payload, timeout=10)
         if resp.status_code != 200:
+            print(f"ERROR: init-deal failed status {resp.status_code}", file=sys.stderr)
             return None, None
         deal_data = resp.json()
         if deal_data.get("errorCode") != 0:
+            print(f"ERROR: init-deal returned error {deal_data}", file=sys.stderr)
             return None, None
         payment_systems = deal_data.get("paymentSystems", [])
-        if not payment_systems:
-            return None, None
-        ps = payment_systems[0]
-        payment_system_code = ps["code"]
-        methods = ps.get("methods", [])
-        payment_method_code = methods[0]["code"] if methods else None
+        return deal_id, payment_systems
     except Exception as e:
-        print(f"ERROR: init-deal exception {e}")
+        print(f"ERROR: init-deal exception {e}", file=sys.stderr)
         return None, None
 
-    # Шаг 2: init-payment
+def create_payment_link(deal_id, payment_system_code, payment_method_code):
+    """Выполняет init-payment и возвращает ссылку на оплату."""
+    headers = {
+        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    # Здесь нужно знать сумму. Она сохраняется в deal_id? У нас нет, но можно получить из get_codes_file? Проще взять ту же сумму, что и в init-deal.
+    # Сумма не передаётся в init-payment? По документации она нужна. В init-payment нужно передать сумму. У нас она была 1000.
+    amount = 1000
     payment_payload = {
         "dealId": deal_id,
         "currency": "RUB",
@@ -173,7 +192,6 @@ def init_payment_url(user_id):
         "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
         "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
         "customParams": {
-            "user_id": user_id,
             "deal_id": deal_id
         }
     }
@@ -181,16 +199,18 @@ def init_payment_url(user_id):
     try:
         resp = requests.post(url_payment, headers=headers, json=payment_payload, timeout=10)
         if resp.status_code != 200:
-            return None, None
+            print(f"ERROR: init-payment failed status {resp.status_code}", file=sys.stderr)
+            return None
         payment_data = resp.json()
         form_url = payment_data.get("formUrl")
         if form_url:
-            return form_url, deal_id
+            return form_url
         else:
-            return None, None
+            print(f"ERROR: no formUrl in response {payment_data}", file=sys.stderr)
+            return None
     except Exception as e:
-        print(f"ERROR: init-payment exception {e}")
-        return None, None
+        print(f"ERROR: init-payment exception {e}", file=sys.stderr)
+        return None
 
 def check_payment_status(deal_id):
     headers = {
@@ -206,10 +226,10 @@ def check_payment_status(deal_id):
             return data.get("isSuccess") is True
         return False
     except Exception as e:
-        print(f"ERROR: getplatinum status exception {e}")
+        print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
         return False
 
-# --- Обработка ---
+# --- Обработка обновлений ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
@@ -233,6 +253,37 @@ def process_updates():
 
     for update in updates:
         update_id = update["update_id"]
+
+        # Обработка callback-запросов (нажатия на inline-кнопки)
+        if "callback_query" in update:
+            callback = update["callback_query"]
+            callback_id = callback["id"]
+            user_id = callback["from"]["id"]
+            data = callback["data"]
+
+            # Разбираем данные: формат "dealId|system|method"
+            parts = data.split("|")
+            if len(parts) == 3:
+                deal_id, ps_code, pm_code = parts
+                print(f"Callback: user {user_id}, dealId={deal_id}, system={ps_code}, method={pm_code}", file=sys.stderr)
+                pay_link = create_payment_link(deal_id, ps_code, pm_code)
+                if pay_link:
+                    # Отправляем пользователю ссылку на оплату
+                    send_message(user_id, f"Ссылка на оплату: {pay_link}")
+                    # Отвечаем на callback, чтобы убрать «часики»
+                    answer_callback(callback_id, "Ссылка создана", show_alert=False)
+                else:
+                    answer_callback(callback_id, "Ошибка создания ссылки", show_alert=True)
+            else:
+                print(f"Unknown callback data: {data}", file=sys.stderr)
+                answer_callback(callback_id, "Неизвестная команда", show_alert=True)
+
+            # Обновляем max_update_id, чтобы не обрабатывать этот callback снова
+            if max_update_id is None or update_id >= max_update_id:
+                max_update_id = update_id + 1
+            continue
+
+        # Обработка сообщений
         message = update.get("message")
         if not message:
             continue
@@ -265,17 +316,36 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start – показываем кнопку
-            pay_link, _ = init_payment_url(user_id)
-            if pay_link:
-                keyboard = {"inline_keyboard": [[{"text": "💳 Оплатить", "url": pay_link}]]}
-                send_message(
-                    user_id,
-                    "Добро пожаловать в LookTV!\n\nНажмите кнопку ниже, чтобы оплатить. После оплаты вы получите код.",
-                    reply_markup=keyboard
-                )
-            else:
-                send_message(user_id, "❌ Ошибка создания платёжной ссылки. Попробуйте позже.")
+            # Обычный /start – получаем доступные способы оплаты и показываем кнопки
+            deal_id, payment_systems = init_deal(user_id)
+            if not deal_id:
+                send_message(user_id, "❌ Ошибка получения способов оплаты. Попробуйте позже.")
+                continue
+
+            # Формируем клавиатуру из доступных методов оплаты
+            keyboard = []
+            for ps in payment_systems:
+                ps_code = ps["code"]
+                # Название платёжной системы (например, "Сбербанк")
+                ps_title = ps.get("title", ps_code)
+                methods = ps.get("methods", [])
+                for method in methods:
+                    method_code = method["code"]
+                    method_title = method.get("title", method_code)
+                    # Кнопка с текстом "Сбербанк: Карта" и callback-данными
+                    button_text = f"{ps_title}: {method_title}"
+                    callback_data = f"{deal_id}|{ps_code}|{method_code}"
+                    # Ограничение длины callback_data – 64 байта. У нас будет в пределах.
+                    keyboard.append([{"text": button_text, "callback_data": callback_data}])
+
+            if not keyboard:
+                send_message(user_id, "❌ Нет доступных способов оплаты. Обратитесь в поддержку.")
+                continue
+
+            reply_markup = {"inline_keyboard": keyboard}
+            send_message(user_id,
+                         "Выберите способ оплаты:",
+                         reply_markup=reply_markup)
             continue
 
         if text == "/buy":
@@ -288,6 +358,7 @@ def process_updates():
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
+    # Сохраняем offset
     if max_update_id is not None:
         new_last_id = max_update_id + 1
         try:
