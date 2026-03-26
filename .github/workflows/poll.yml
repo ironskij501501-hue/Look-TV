@@ -5,9 +5,6 @@ on:
     - cron: '* * * * *'   # каждую минуту
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   poll:
     runs-on: ubuntu-latest
@@ -20,9 +17,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: last_update.txt
-          key: last-update-cache-final
+          key: last-update-cache-v3
           restore-keys: |
-            last-update-cache-final
+            last-update-cache-v3
 
       - uses: actions/setup-python@v5
         with:
@@ -42,4 +39,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: last_update.txt
-          key: last-update-cache-final
+          key: last-update-cache-v3
