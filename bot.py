@@ -78,9 +78,11 @@ def add_code_to_file(code):
     return update_codes_file(new_content, sha)
 
 # --- Telegram ---
-def send_message(chat_id, text):
+def send_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
     try:
         resp = requests.post(url, json=payload, timeout=5)
         print(f"DEBUG: send_message response status {resp.status_code}", file=sys.stderr)
@@ -227,7 +229,6 @@ def commit_last_update_file(content):
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github+json"
     }
-    # Получаем текущий SHA, если файл существует
     get_resp = requests.get(url, headers=headers)
     sha = None
     if get_resp.status_code == 200:
@@ -257,7 +258,6 @@ def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
 
-    # Читаем последний обработанный update_id
     last_id = None
     if os.path.exists(LAST_UPDATE_FILE):
         try:
@@ -273,8 +273,6 @@ def process_updates():
         return
 
     print(f"Got {len(updates)} updates", file=sys.stderr)
-
-    # Определяем максимальный update_id среди всех полученных обновлений
     max_update_id = max(update["update_id"] for update in updates) if updates else None
 
     for update in updates:
@@ -288,7 +286,6 @@ def process_updates():
 
         print(f"User {user_id}, text: {text}", file=sys.stderr)
 
-        # Обработка команд
         if text.startswith("/start"):
             parts = text.split()
             param = parts[1] if len(parts) > 1 else None
@@ -308,15 +305,18 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start – показываем ссылку на оплату
+            # Обычный /start – отправляем кнопку с оплатой
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
+                keyboard = {
+                    "inline_keyboard": [
+                        [{"text": "💳 Оплатить", "url": pay_link}]
+                    ]
+                }
                 send_message(
                     user_id,
-                    f"Добро пожаловать в LookTV!\n\n"
-                    f"Для получения кода активации перейдите по ссылке и оплатите:\n"
-                    f"{pay_link}\n\n"
-                    f"После успешной оплаты вы автоматически получите код."
+                    "Добро пожаловать в LookTV!\n\nНажмите кнопку ниже, чтобы оплатить. После успешной оплаты вы автоматически получите код активации.",
+                    reply_markup=keyboard
                 )
             else:
                 send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
@@ -332,7 +332,6 @@ def process_updates():
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
-    # После обработки всех обновлений сохраняем новый offset
     if max_update_id is not None:
         new_last_id = max_update_id + 1
         try:
@@ -341,7 +340,6 @@ def process_updates():
             print(f"DEBUG: saved local last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR saving last_update.txt locally: {e}", file=sys.stderr)
-        # Коммитим в репозиторий
         commit_last_update_file(str(new_last_id))
     else:
         print("No updates with messages processed, keeping old last_id", file=sys.stderr)
