@@ -16,6 +16,14 @@ jobs:
         with:
           token: ${{ secrets.PAT_TOKEN }}
 
+      - name: Restore last_update.txt from cache
+        uses: actions/cache@v4
+        with:
+          path: last_update.txt
+          key: last-update-cache
+          restore-keys: |
+            last-update-cache
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -29,3 +37,9 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GETPLATINUM_API_KEY: ${{ secrets.GETPLATINUM_API_KEY }}
         run: python bot.py
+
+      - name: Save last_update.txt to cache
+        uses: actions/cache/save@v4
+        with:
+          path: last_update.txt
+          key: last-update-cache
