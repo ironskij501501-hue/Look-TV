@@ -121,7 +121,7 @@ def init_payment_url(user_id):
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 100  # 100 RUB – измените на свою цену
+    amount = 1000  # 10 рублей – измените на свою цену в копейках
     client_email = f"user{user_id}@looktv.temp"
 
     payload = {
@@ -141,7 +141,7 @@ def init_payment_url(user_id):
             "clientId": str(user_id),
             "email": client_email
         },
-        "notificationUrl": "https://google.com",  # можно заменить на ваш URL
+        "notificationUrl": "https://google.com",
         "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
         "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
         "customParams": {
@@ -183,8 +183,10 @@ def check_payment_status(deal_id):
         print(f"DEBUG: getplatinum status body {resp.text}", file=sys.stderr)
         if resp.status_code == 200:
             data = resp.json()
+            print(f"DEBUG: status data: {data}", file=sys.stderr)
             return data.get("isSuccess") is True
         else:
+            print(f"ERROR: status returned {resp.status_code}", file=sys.stderr)
             return False
     except Exception as e:
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
@@ -260,6 +262,7 @@ def process_updates():
 
             if param and param.startswith("pay_"):
                 deal_id = param[4:]
+                print(f"DEBUG: Processing payment return for deal_id={deal_id}", file=sys.stderr)
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
