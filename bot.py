@@ -1,4 +1,3 @@
-
 import sys
 import os
 import secrets
@@ -6,7 +5,6 @@ import requests
 import base64
 import json
 import time
-import urllib.parse
 
 # --- Конфигурация ---
 GITHUB_USER = "ironskij501501-hue"
@@ -23,11 +21,13 @@ GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
 # Пробуем URL без /public – если не работает, добавьте /public обратно
 GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api"
-# Альтернативный URL (если не работает, раскомментируйте и закомментируйте предыдущий):
-# GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public"
+# Способ авторизации: "Bearer" или "X-API-Key"
+AUTH_TYPE = "X-API-Key"  # попробуйте "Bearer" если не работает
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN) if TELEGRAM_TOKEN else 0}", file=sys.stderr)
+print(f"DEBUG: GETPLATINUM_API_KEY present, length={len(GETPLATINUM_API_KEY) if GETPLATINUM_API_KEY else 0}", file=sys.stderr)
+print(f"DEBUG: AUTH_TYPE = {AUTH_TYPE}", file=sys.stderr)
 
 if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
@@ -121,15 +121,25 @@ def delete_webhook():
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
 # --- Функции для работы с GetPlatinum (двухэтапный процесс) ---
+def get_auth_headers():
+    """Возвращает заголовки авторизации в зависимости от выбранного типа"""
+    if AUTH_TYPE == "Bearer":
+        return {
+            "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
+            "Content-Type": "application/json"
+        }
+    else:
+        return {
+            "X-API-Key": GETPLATINUM_API_KEY,
+            "Content-Type": "application/json"
+        }
+
 def init_payment_url(user_id):
     """
     Создаёт платёжную ссылку через init-deal + init-payment.
     Возвращает (payment_url, deal_id) или (None, None) в случае ошибки.
     """
-    headers = {
-        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = get_auth_headers()
     # Генерируем уникальный ID заказа
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
     # Сумма в копейках – измените на свою цену
@@ -189,7 +199,7 @@ def init_payment_url(user_id):
         "amount": amount,
         "paymentSystem": payment_system_code,
         "paymentMethod": payment_method_code,
-        "notificationUrl": "https://google.com",  # можно заменить на любой доступный URL
+        "notificationUrl": "https://google.com",
         "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
         "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
         "customParams": {
@@ -221,10 +231,7 @@ def check_payment_status(deal_id):
     Проверяет статус платежа по dealId через метод /status
     Возвращает True, если платёж успешно завершён.
     """
-    headers = {
-        "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    headers = get_auth_headers()
     payload = {
         "dealId": deal_id
     }
