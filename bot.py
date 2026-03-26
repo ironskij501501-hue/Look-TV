@@ -130,7 +130,7 @@ def init_payment_url(user_id):
     # Генерируем уникальный ID заказа (используем user_id + timestamp)
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
     # Сумма в копейках (например, 100 руб = 10000) – измените на свою цену
-    amount = 10000  # 100 рублей
+    amount = 1000  # 100 рублей
     # Email пользователя – временно используем заглушку
     client_email = f"user{user_id}@looktv.temp"
 
