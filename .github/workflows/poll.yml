@@ -1,0 +1,31 @@
+name: Poll Telegram updates
+
+on:
+  schedule:
+    - cron: '* * * * *'   # каждую минуту
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run bot script
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GETPLATINUM_API_KEY: ${{ secrets.GETPLATINUM_API_KEY }}
+        run: python bot.py
