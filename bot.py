@@ -1,3 +1,4 @@
+
 import sys
 import os
 import secrets
@@ -5,6 +6,7 @@ import requests
 import base64
 import json
 import time
+import urllib.parse
 
 # --- Конфигурация ---
 GITHUB_USER = "ironskij501501-hue"
@@ -16,24 +18,21 @@ LAST_UPDATE_FILE = "last_update.txt"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-# Данные для getplatinum
 GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
-# Пробуем URL без /public – если не работает, добавьте /public обратно
+# Пробуем URL без /public (если не работает, добавьте /public)
 GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api"
-# Способ авторизации: "Bearer" или "X-API-Key"
-AUTH_TYPE = "X-API-Key"  # попробуйте "Bearer" если не работает
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN) if TELEGRAM_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: GETPLATINUM_API_KEY present, length={len(GETPLATINUM_API_KEY) if GETPLATINUM_API_KEY else 0}", file=sys.stderr)
-print(f"DEBUG: AUTH_TYPE = {AUTH_TYPE}", file=sys.stderr)
+print(f"DEBUG: AUTH_TYPE = X-API-Key", file=sys.stderr)
 
 if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API функции (без изменений) ---
+# --- GitHub API функции ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -120,34 +119,17 @@ def delete_webhook():
     except Exception as e:
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
-# --- Функции для работы с GetPlatinum (двухэтапный процесс) ---
-def get_auth_headers():
-    """Возвращает заголовки авторизации в зависимости от выбранного типа"""
-    if AUTH_TYPE == "Bearer":
-        return {
-            "Authorization": f"Bearer {GETPLATINUM_API_KEY}",
-            "Content-Type": "application/json"
-        }
-    else:
-        return {
-            "X-API-Key": GETPLATINUM_API_KEY,
-            "Content-Type": "application/json"
-        }
-
+# --- Функции для работы с GetPlatinum (двухэтапный, X-API-Key) ---
 def init_payment_url(user_id):
-    """
-    Создаёт платёжную ссылку через init-deal + init-payment.
-    Возвращает (payment_url, deal_id) или (None, None) в случае ошибки.
-    """
-    headers = get_auth_headers()
-    # Генерируем уникальный ID заказа
+    headers = {
+        "X-API-Key": GETPLATINUM_API_KEY,
+        "Content-Type": "application/json"
+    }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    # Сумма в копейках – измените на свою цену
-    amount = 10000  # 100 рублей
-    # Email пользователя – временно используем заглушку
+    amount = 10000  # 100 рублей – измените на свою цену в копейках
     client_email = f"user{user_id}@looktv.temp"
 
-    # ---- Шаг 1: Инициализация заказа (init-deal) ----
+    # Шаг 1: инициализация заказа
     deal_payload = {
         "dealId": deal_id,
         "currency": "RUB",
@@ -181,10 +163,8 @@ def init_payment_url(user_id):
         if not payment_systems:
             print("ERROR: no payment systems available", file=sys.stderr)
             return None, None
-        # Берём первую доступную платёжную систему
         ps = payment_systems[0]
         payment_system_code = ps["code"]
-        # Берём первый метод оплаты внутри системы
         methods = ps.get("methods", [])
         payment_method_code = methods[0]["code"] if methods else None
         print(f"DEBUG: using paymentSystem={payment_system_code}, method={payment_method_code}", file=sys.stderr)
@@ -192,7 +172,7 @@ def init_payment_url(user_id):
         print(f"ERROR: init-deal exception {e}", file=sys.stderr)
         return None, None
 
-    # ---- Шаг 2: Инициализация платежа (init-payment) ----
+    # Шаг 2: инициализация платежа
     payment_payload = {
         "dealId": deal_id,
         "currency": "RUB",
@@ -227,14 +207,11 @@ def init_payment_url(user_id):
         return None, None
 
 def check_payment_status(deal_id):
-    """
-    Проверяет статус платежа по dealId через метод /status
-    Возвращает True, если платёж успешно завершён.
-    """
-    headers = get_auth_headers()
-    payload = {
-        "dealId": deal_id
+    headers = {
+        "X-API-Key": GETPLATINUM_API_KEY,
+        "Content-Type": "application/json"
     }
+    payload = {"dealId": deal_id}
     url = f"{GETPLATINUM_BASE_URL}/status"
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
@@ -282,14 +259,12 @@ def process_updates():
 
         print(f"User {user_id}, text: {text}", file=sys.stderr)
 
-        # --- Обработка команды /start с возможным deep link ---
         if text.startswith("/start"):
             parts = text.split()
             param = parts[1] if len(parts) > 1 else None
 
             if param and param.startswith("pay_"):
-                # Это возврат после оплаты
-                deal_id = param[4:]  # отрезаем "pay_"
+                deal_id = param[4:]
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
@@ -303,7 +278,6 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start без параметра – показываем кнопку оплаты
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
                 keyboard = {
@@ -322,7 +296,6 @@ def process_updates():
                 send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
             continue
 
-        # --- Обработка команды /buy (ручной режим) ---
         if text == "/buy":
             code = generate_code()
             if add_code_to_file(code):
@@ -331,14 +304,11 @@ def process_updates():
                 send_message(user_id, "❌ Ошибка генерации кода. Обратитесь к администратору.")
             continue
 
-        # --- Неизвестная команда ---
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
-        # Сохраняем update_id
         if new_last_id is None or update_id >= new_last_id:
             new_last_id = update_id + 1
 
-    # Сохраняем last_update_id
     if new_last_id is not None:
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
