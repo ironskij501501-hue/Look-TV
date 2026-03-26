@@ -2,7 +2,7 @@ name: Poll Telegram updates
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # каждые 5 минут
+   - cron: '* * * * *'
   workflow_dispatch:         # ручной запуск
 
 permissions:
