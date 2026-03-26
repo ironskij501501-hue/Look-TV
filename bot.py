@@ -273,7 +273,9 @@ def process_updates():
         return
 
     print(f"Got {len(updates)} updates", file=sys.stderr)
-    max_update_id = None
+
+    # Определяем максимальный update_id среди всех полученных обновлений
+    max_update_id = max(update["update_id"] for update in updates) if updates else None
 
     for update in updates:
         update_id = update["update_id"]
@@ -301,14 +303,9 @@ def process_updates():
                         send_message(user_id, "❌ Ошибка генерации кода. Обратитесь к администратору.")
                 else:
                     send_message(user_id, "❌ Оплата не найдена или не подтверждена. Если вы оплатили, подождите несколько минут и снова нажмите /start. Или напишите /buy для получения кода.")
-                # Обработанный update_id
-                if max_update_id is None or update_id > max_update_id:
-                    max_update_id = update_id
                 continue
             elif param and param.startswith("pay_failed_"):
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
-                if max_update_id is None or update_id > max_update_id:
-                    max_update_id = update_id
                 continue
 
             # Обычный /start – показываем ссылку на оплату
@@ -323,8 +320,6 @@ def process_updates():
                 )
             else:
                 send_message(user_id, "❌ Ошибка создания платёжной ссылки. Пожалуйста, попробуйте позже или обратитесь к администратору.")
-            if max_update_id is None or update_id > max_update_id:
-                max_update_id = update_id
             continue
 
         if text == "/buy":
@@ -333,18 +328,13 @@ def process_updates():
                 send_message(user_id, f"✅ Ваш код активации: `{code}`")
             else:
                 send_message(user_id, "❌ Ошибка генерации кода. Обратитесь к администратору.")
-            if max_update_id is None or update_id > max_update_id:
-                max_update_id = update_id
             continue
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
-        if max_update_id is None or update_id > max_update_id:
-            max_update_id = update_id
 
-    # Сохраняем новый offset (последний обработанный update_id + 1)
+    # После обработки всех обновлений сохраняем новый offset
     if max_update_id is not None:
         new_last_id = max_update_id + 1
-        # Записываем локально
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
                 f.write(str(new_last_id))
