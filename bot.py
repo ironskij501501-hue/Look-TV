@@ -17,24 +17,13 @@ LAST_UPDATE_FILE = "last_update.txt"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
-# Данные для getplatinum
+# Данные для GetPlatinum
 GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
-# Используем полный базовый URL согласно документации
+# Правильный базовый URL согласно документации
 GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public/pay"
-
-# Выбираем вариант авторизации (2 = Bearer, без дополнительного /public)
-AUTH_VARIANT = 2
-
-if AUTH_VARIANT == 1:
-    # Не используется, оставлен для совместимости
-    AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
-elif AUTH_VARIANT == 2:
-    AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
-elif AUTH_VARIANT == 3:
-    AUTH_HEADER = {"X-API-Key": GETPLATINUM_API_KEY}
-else:
-    AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
+# Используем Bearer авторизацию
+AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN) if TELEGRAM_TOKEN else 0}", file=sys.stderr)
@@ -46,7 +35,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API функции ---
+# --- GitHub API функции (без изменений) ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -149,7 +138,7 @@ def init_payment_url(user_id):
         "amount": amount,
         "positions": [
             {
-                "prefix": 12,           # категория "Курс"
+                "prefix": 12,  # обязательно!
                 "name": "Активация LookTV",
                 "price": amount,
                 "quantity": 1,
@@ -177,8 +166,10 @@ def init_payment_url(user_id):
         if not payment_systems:
             print("ERROR: no payment systems available", file=sys.stderr)
             return None, None
+        # Берём первую доступную платёжную систему
         ps = payment_systems[0]
         payment_system_code = ps["code"]
+        # Берём первый метод оплаты внутри системы
         methods = ps.get("methods", [])
         payment_method_code = methods[0]["code"] if methods else None
         print(f"DEBUG: using paymentSystem={payment_system_code}, method={payment_method_code}", file=sys.stderr)
@@ -193,7 +184,7 @@ def init_payment_url(user_id):
         "amount": amount,
         "paymentSystem": payment_system_code,
         "paymentMethod": payment_method_code,
-        "notificationUrl": "https://google.com",
+        "notificationUrl": "https://google.com",  # можно заменить на любой доступный URL
         "successUrl": f"https://t.me/LookTVhelper_bot?start=pay_{deal_id}",
         "failUrl": f"https://t.me/LookTVhelper_bot?start=pay_failed_{deal_id}",
         "customParams": {
@@ -276,7 +267,8 @@ def process_updates():
             param = parts[1] if len(parts) > 1 else None
 
             if param and param.startswith("pay_"):
-                deal_id = param[4:]
+                # Это возврат после оплаты
+                deal_id = param[4:]  # отрезаем "pay_"
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
@@ -290,6 +282,7 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
+            # Обычный /start без параметра – показываем кнопку оплаты
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
                 keyboard = {
