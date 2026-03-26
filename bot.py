@@ -28,7 +28,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API (для codes.txt) ---
+# --- GitHub API ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -121,7 +121,7 @@ def init_payment_url(user_id):
         "Content-Type": "application/json"
     }
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
-    amount = 100  # 10 рублей – измените на свою цену в копейках
+    amount = 100  # 100 RUB – измените на свою цену в копейках
     client_email = f"user{user_id}@looktv.temp"
 
     payload = {
@@ -183,10 +183,10 @@ def check_payment_status(deal_id):
         print(f"DEBUG: getplatinum status body {resp.text}", file=sys.stderr)
         if resp.status_code == 200:
             data = resp.json()
-            print(f"DEBUG: status data: {data}", file=sys.stderr)
+            # Выводим содержимое ответа для диагностики
+            print(f"DEBUG: status response data: {data}", file=sys.stderr)
             return data.get("isSuccess") is True
         else:
-            print(f"ERROR: status returned {resp.status_code}", file=sys.stderr)
             return False
     except Exception as e:
         print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
@@ -223,7 +223,7 @@ def commit_last_update_file(content):
         print(f"ERROR: failed to commit {LAST_UPDATE_FILE}: {put_resp.status_code} {put_resp.text}", file=sys.stderr)
         return False
 
-# --- Обработка ---
+# --- Обработка обновлений ---
 def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
@@ -262,7 +262,6 @@ def process_updates():
 
             if param and param.startswith("pay_"):
                 deal_id = param[4:]
-                print(f"DEBUG: Processing payment return for deal_id={deal_id}", file=sys.stderr)
                 if check_payment_status(deal_id):
                     code = generate_code()
                     if add_code_to_file(code):
@@ -288,7 +287,7 @@ def process_updates():
                 send_message(user_id, "❌ Оплата не удалась. Попробуйте ещё раз через /start или обратитесь в поддержку.")
                 continue
 
-            # Обычный /start – создаём универсальную ссылку
+            # Обычный /start – универсальная кнопка оплаты
             pay_link, deal_id = init_payment_url(user_id)
             if pay_link:
                 keyboard = {
