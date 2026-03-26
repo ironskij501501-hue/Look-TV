@@ -1,4 +1,3 @@
-
 import sys
 import os
 import secrets
@@ -18,15 +17,31 @@ LAST_UPDATE_FILE = "last_update.txt"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 
+# --- Конфигурация GetPlatinum ---
 GETPLATINUM_API_KEY = os.environ.get("GETPLATINUM_API_KEY")
 GETPLATINUM_ACCOUNT = "iptvclub"
-# Пробуем URL без /public (если не работает, добавьте /public)
-GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api"
+
+# Выберите вариант: 1 – с /public и Bearer, 2 – без /public и Bearer, 3 – X-API-Key без /public
+AUTH_VARIANT = 1  # меняйте 1, 2, 3
+
+if AUTH_VARIANT == 1:
+    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api/public"
+    AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
+elif AUTH_VARIANT == 2:
+    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api"
+    AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
+elif AUTH_VARIANT == 3:
+    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api"
+    AUTH_HEADER = {"X-API-Key": GETPLATINUM_API_KEY}
+else:
+    GETPLATINUM_BASE_URL = f"https://{GETPLATINUM_ACCOUNT}.getplatinum.ru/api"
+    AUTH_HEADER = {"Authorization": f"Bearer {GETPLATINUM_API_KEY}"}
 
 print(f"DEBUG: GITHUB_TOKEN present, length={len(GITHUB_TOKEN) if GITHUB_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: TELEGRAM_TOKEN present, length={len(TELEGRAM_TOKEN) if TELEGRAM_TOKEN else 0}", file=sys.stderr)
 print(f"DEBUG: GETPLATINUM_API_KEY present, length={len(GETPLATINUM_API_KEY) if GETPLATINUM_API_KEY else 0}", file=sys.stderr)
-print(f"DEBUG: AUTH_TYPE = X-API-Key", file=sys.stderr)
+print(f"DEBUG: GETPLATINUM_BASE_URL = {GETPLATINUM_BASE_URL}", file=sys.stderr)
+print(f"DEBUG: AUTH_HEADER keys = {list(AUTH_HEADER.keys())}", file=sys.stderr)
 
 if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
@@ -119,12 +134,11 @@ def delete_webhook():
     except Exception as e:
         print(f"ERROR deleteWebhook: {e}", file=sys.stderr)
 
-# --- Функции для работы с GetPlatinum (двухэтапный, X-API-Key) ---
+# --- Функции для работы с GetPlatinum (с использованием AUTH_HEADER) ---
 def init_payment_url(user_id):
-    headers = {
-        "X-API-Key": GETPLATINUM_API_KEY,
-        "Content-Type": "application/json"
-    }
+    headers = AUTH_HEADER.copy()
+    headers["Content-Type"] = "application/json"
+
     deal_id = f"LOOKTV_{user_id}_{int(time.time())}_{secrets.token_hex(4)}"
     amount = 10000  # 100 рублей – измените на свою цену в копейках
     client_email = f"user{user_id}@looktv.temp"
@@ -207,10 +221,8 @@ def init_payment_url(user_id):
         return None, None
 
 def check_payment_status(deal_id):
-    headers = {
-        "X-API-Key": GETPLATINUM_API_KEY,
-        "Content-Type": "application/json"
-    }
+    headers = AUTH_HEADER.copy()
+    headers["Content-Type"] = "application/json"
     payload = {"dealId": deal_id}
     url = f"{GETPLATINUM_BASE_URL}/status"
     try:
