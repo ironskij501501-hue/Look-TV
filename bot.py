@@ -28,7 +28,7 @@ if not GITHUB_TOKEN or not TELEGRAM_TOKEN:
     print("ERROR: Missing token(s)", file=sys.stderr)
     sys.exit(1)
 
-# --- GitHub API для codes.txt ---
+# --- GitHub API ---
 def get_codes_file():
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     resp = requests.get(CODES_URL, headers=headers)
@@ -146,26 +146,20 @@ def init_payment_url(user_id):
     url_deal = f"{GETPLATINUM_BASE_URL}/init-deal"
     try:
         resp = requests.post(url_deal, headers=headers, json=deal_payload, timeout=10)
-        print(f"DEBUG: getplatinum init-deal response {resp.status_code}", file=sys.stderr)
-        print(f"DEBUG: getplatinum init-deal body {resp.text}", file=sys.stderr)
         if resp.status_code != 200:
-            print(f"ERROR: init-deal failed with status {resp.status_code}", file=sys.stderr)
             return None, None
         deal_data = resp.json()
         if deal_data.get("errorCode") != 0:
-            print(f"ERROR: init-deal returned error {deal_data}", file=sys.stderr)
             return None, None
         payment_systems = deal_data.get("paymentSystems", [])
         if not payment_systems:
-            print("ERROR: no payment systems available", file=sys.stderr)
             return None, None
         ps = payment_systems[0]
         payment_system_code = ps["code"]
         methods = ps.get("methods", [])
         payment_method_code = methods[0]["code"] if methods else None
-        print(f"DEBUG: using paymentSystem={payment_system_code}, method={payment_method_code}", file=sys.stderr)
     except Exception as e:
-        print(f"ERROR: init-deal exception {e}", file=sys.stderr)
+        print(f"ERROR: init-deal exception {e}")
         return None, None
 
     # Шаг 2: init-payment
@@ -186,20 +180,16 @@ def init_payment_url(user_id):
     url_payment = f"{GETPLATINUM_BASE_URL}/init-payment"
     try:
         resp = requests.post(url_payment, headers=headers, json=payment_payload, timeout=10)
-        print(f"DEBUG: getplatinum init-payment response {resp.status_code}", file=sys.stderr)
-        print(f"DEBUG: getplatinum init-payment body {resp.text}", file=sys.stderr)
         if resp.status_code != 200:
-            print(f"ERROR: init-payment failed with status {resp.status_code}", file=sys.stderr)
             return None, None
         payment_data = resp.json()
         form_url = payment_data.get("formUrl")
         if form_url:
             return form_url, deal_id
         else:
-            print(f"ERROR: no formUrl in response {payment_data}", file=sys.stderr)
             return None, None
     except Exception as e:
-        print(f"ERROR: init-payment exception {e}", file=sys.stderr)
+        print(f"ERROR: init-payment exception {e}")
         return None, None
 
 def check_payment_status(deal_id):
@@ -211,47 +201,12 @@ def check_payment_status(deal_id):
     url = f"{GETPLATINUM_BASE_URL}/status"
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
-        print(f"DEBUG: getplatinum status response {resp.status_code}", file=sys.stderr)
-        print(f"DEBUG: getplatinum status body {resp.text}", file=sys.stderr)
         if resp.status_code == 200:
             data = resp.json()
             return data.get("isSuccess") is True
-        else:
-            return False
+        return False
     except Exception as e:
-        print(f"ERROR: getplatinum status exception {e}", file=sys.stderr)
-        return False
-
-# --- Функция для коммита last_update.txt в репозиторий ---
-def commit_last_update_file(content):
-    url = f"https://api.github.com/repos/{GITHUB_USER}/{GITHUB_REPO}/contents/{LAST_UPDATE_FILE}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
-    # Получаем текущий SHA, если файл существует
-    get_resp = requests.get(url, headers=headers)
-    sha = None
-    if get_resp.status_code == 200:
-        sha = get_resp.json().get("sha")
-    elif get_resp.status_code != 404:
-        print(f"Unexpected status checking {LAST_UPDATE_FILE}: {get_resp.status_code}", file=sys.stderr)
-        return False
-
-    encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
-    data = {
-        "message": "Update last_update.txt",
-        "content": encoded,
-        "branch": "main"
-    }
-    if sha:
-        data["sha"] = sha
-    put_resp = requests.put(url, headers=headers, json=data)
-    if put_resp.status_code in [200, 201]:
-        print(f"DEBUG: committed {LAST_UPDATE_FILE}", file=sys.stderr)
-        return True
-    else:
-        print(f"ERROR: failed to commit {LAST_UPDATE_FILE}: {put_resp.status_code} {put_resp.text}", file=sys.stderr)
+        print(f"ERROR: getplatinum status exception {e}")
         return False
 
 # --- Обработка ---
@@ -259,7 +214,6 @@ def process_updates():
     print("Processing updates...", file=sys.stderr)
     delete_webhook()
 
-    # Читаем последний обработанный update_id из файла (если он есть)
     last_id = None
     if os.path.exists(LAST_UPDATE_FILE):
         try:
@@ -334,18 +288,14 @@ def process_updates():
 
         send_message(user_id, "Используйте /start для начала или /buy для получения кода.")
 
-    # После обработки всех обновлений сохраняем новый offset
     if max_update_id is not None:
         new_last_id = max_update_id + 1
-        # Записываем локально (для текущего запуска)
         try:
             with open(LAST_UPDATE_FILE, "w") as f:
                 f.write(str(new_last_id))
             print(f"DEBUG: saved local last_update_id = {new_last_id}", file=sys.stderr)
         except Exception as e:
             print(f"ERROR saving last_update.txt locally: {e}", file=sys.stderr)
-        # Коммитим в репозиторий
-        commit_last_update_file(str(new_last_id))
     else:
         print("No updates with messages processed, keeping old last_id", file=sys.stderr)
 
