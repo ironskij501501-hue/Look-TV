@@ -7,10 +7,7 @@
         "name": "📺 Free-TV International",
         "url": "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8"
     },
-    {
-        "name": "📡 Samsung TV Plus",
-        "url": "https://apsattv.com/ssungusa.m3u"
-    },
+
     {
         "name": "🎬 The Roku Channel",
         "url": "https://apsattv.com/rok.m3u"
