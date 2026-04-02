@@ -1,4 +1,4 @@
-
+#EXTM3U x-tvg-url="http://epg.it999.ru/epg.xml.gz"
 #EXTINF:0 tvg-id="ch001" tvg-name="Первый HD" tvg-rec="6", Первый HD
 #EXTGRP:1. Federal/Федеральные
 http://16.tvtm.one/ch001/mono.m3u8?token=torpedo1960.v2_1X7xB7qFz94FjfuCoctwbzvIqggZxlN2XJFxGoxWK5gaPKyk8qAV4Vvs6dFNxBet5P6rT3XOE6ba-A&nostub=1
