@@ -3851,72 +3851,7 @@ http://16.tvtm.one/ch3770/mono.m3u8?token=torpedo1960.v2_XE_kc7SxpXhXJei0jyCmycc
 #EXTINF:0 tvg-id="ch3785" tvg-name="TVPlay Следствие вели с Л Каневским" tvg-logo="http://tvtm.one/images/chIcons/3785.png" tvg-rec="3", TVPlay Следствие вели с Л Каневским
 #EXTGRP:12. Rest/Прочее
 http://16.tvtm.one/ch3785/mono.m3u8?token=torpedo1960.v2_f0dhBK7PLt68G3yl-YrZvY-i-8ZSQ67jYa_F93_EhItVGQTBA043tOdZGjkMDUdeFi9qwa_VytCbto4NpQ&nostub=1
-#EXTINF:0 tvg-id="ch216" tvg-name="UA: Перший HD" tvg-logo="http://tvtm.one/images/chIcons/216.png" tvg-rec="3", UA: Перший HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch216/mono.m3u8?token=torpedo1960.v2_dBV7DKwxdq-bGjKeQVgGzWc1ImsLglkisav2ovj6XNLNsKrC6gnE3QOz2rtXrAQcwI7OZbgahmMHIYzA&nostub=1
-#EXTINF:0 tvg-id="ch089" tvg-name="UA: Інтер HD" tvg-logo="http://tvtm.one/images/chIcons/89.png" tvg-rec="3", UA: Інтер HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch089/mono.m3u8?token=torpedo1960.v2_GkUFkv2SGr6521yTy0mHM2xZefjl8m0RSFvIQda05IsG8Re8VifWk56f9Q8qoOM5F2fjmdkkuHMDMgQ&nostub=1
-#EXTINF:0 tvg-id="ch304" tvg-name="UA: Інтер+ HD" tvg-logo="http://tvtm.one/images/chIcons/304.png" tvg-rec="3", UA: Інтер+ HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch304/mono.m3u8?token=torpedo1960.v2_BtSZ7j3v_FNXShHjHM4vPo_7_WGzuqBYvptAM2AS5BccfyZOZqnktntgMaCJzs_1yjKowGVE4QRNrO2m&nostub=1
-#EXTINF:0 tvg-id="ch087" tvg-name="UA: 5 канал HD" tvg-logo="http://tvtm.one/images/chIcons/87.png" tvg-rec="3", UA: 5 канал HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch087/mono.m3u8?token=torpedo1960.v2_cwqxZQ_Gx3ptjUKERjq4_G3PyIe3HKdjZ-tz494f8Q9sH2I4QRXcPG90QFgI2mRH0dwqQcc3VD4Xi9E&nostub=1
-#EXTINF:0 tvg-id="ch332" tvg-name="UA: 1+1 Україна HD" tvg-logo="http://tvtm.one/images/chIcons/332.png" tvg-rec="3", UA: 1+1 Україна HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch332/mono.m3u8?token=torpedo1960.v2_5ERMs2DUq1AF7gifK0BtwHPlrJ0g5_b9_vq6z7Nny3IZQ4uVK2yeFypiAo7Q3DLKK5NksHxuZN8odQkX&nostub=1
-#EXTINF:0 tvg-id="ch217" tvg-name="UA: 1+1 Марафон HD" tvg-logo="http://tvtm.one/images/chIcons/217.png" tvg-rec="3", UA: 1+1 Марафон HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch217/mono.m3u8?token=torpedo1960.v2_H3EwP1_176qUQF6DZI-uNEuJXS1k8wMfLfE6VLZRs9F2ZJZF1-lzSPv74le80w8p6oyaY5Y-WuqbCIb0&nostub=1
-#EXTINF:0 tvg-id="ch218" tvg-name="UA: 1+1 Int" tvg-logo="http://tvtm.one/images/chIcons/218.png" tvg-rec="3", UA: 1+1 Int
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch218/mono.m3u8?token=torpedo1960.v2_zjEOVRGI3JXIiqNmHtke9EnhQ79j6-SqGZcozd5ASEjccA9fn1_qrA80p-lT0pdX4yaodvlddOhjYkGp&nostub=1
-#EXTINF:0 tvg-id="ch219" tvg-name="UA: ICTV HD" tvg-logo="http://tvtm.one/images/chIcons/219.png" tvg-rec="3", UA: ICTV HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch219/mono.m3u8?token=torpedo1960.v2_qicMpz7YWsyEnY5NixEtI9l-EngsPYrCF6_LgnGEbvfYESZpPBrOJ5-bhqi6YyQH-g8pryq4AmkYHwQz&nostub=1
-#EXTINF:0 tvg-id="ch658" tvg-name="UA: ICTV 2 HD" tvg-logo="http://tvtm.one/images/chIcons/658.png" tvg-rec="3", UA: ICTV 2 HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch658/mono.m3u8?token=torpedo1960.v2_UlHYjvrmUiwXuB3iRixz6UCUGWAL2VOqH-jDVmeQwIEwjSPpEaWSIrTeLJoSBjJNxrHWFbjnGDAmguBS&nostub=1
-#EXTINF:0 tvg-id="ch092" tvg-name="UA: 2+2 HD" tvg-logo="http://tvtm.one/images/chIcons/92.png" tvg-rec="3", UA: 2+2 HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch092/mono.m3u8?token=torpedo1960.v2_CymNWBuSbAUQOexZePOZfQ9kJSRrBmUJLgMyhPbv1TEN5zK-X4zRrRzFEM6NJ88SJqK77A4I23qBcDU&nostub=1
-#EXTINF:0 tvg-id="ch129" tvg-name="UA: Квартал ТВ HD" tvg-logo="http://tvtm.one/images/chIcons/129.png" tvg-rec="3", UA: Квартал ТВ HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch129/mono.m3u8?token=torpedo1960.v2_j610Bg6TtbQUQ-upbmgdeg1BKYbRRtUhHTEYjellRI4x2SoPnIY6RZqufniRONhrKeTaVt84wl-YBhjO&nostub=1
-#EXTINF:0 tvg-id="ch299" tvg-name="UA: Бігуді" tvg-logo="http://tvtm.one/images/chIcons/299.png" tvg-rec="3", UA: Бігуді
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch299/mono.m3u8?token=torpedo1960.v2_ggyU3UiTwvD4FuISuIiwUuzjo7OW-zNtxkRHyArwDyYsAbA5qDq4dJy52JlzE3-6irHlAmqLWICFCUhN&nostub=1
-#EXTINF:0 tvg-id="ch301" tvg-name="UA: Перший міський (Одеса)" tvg-logo="http://tvtm.one/images/chIcons/301.png" tvg-rec="3", UA: Перший міський (Одеса)
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch301/mono.m3u8?token=torpedo1960.v2_chdEm5GEtJX1cce2IbCFC5mBJKg_YSXvvT7Jm5s-dRTQ8NCrevYTfg8pbbYWPLuI3s1blfeccZ4PgojW&nostub=1
-#EXTINF:0 tvg-id="ch419" tvg-name="UA: 8 канал HD" tvg-logo="http://tvtm.one/images/chIcons/419.png" tvg-rec="3", UA: 8 канал HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch419/mono.m3u8?token=torpedo1960.v2_Od4tNeUx3H34WSI5iHIdX65g7Ti4-HYYe_F_KBdY6jzBorVIpDzj6SSOb2kJZmlPZ3TG4Vm2fagXqWas&nostub=1
-#EXTINF:0 tvg-id="ch309" tvg-name="UA: Рада" tvg-logo="http://tvtm.one/images/chIcons/309.png" tvg-rec="3", UA: Рада
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch309/mono.m3u8?token=torpedo1960.v2_u7i5oRC3cDbQiIiRx6wJM-KwlNsPnapb756QsVuydGspcv4FoNHENVAj0iyU0ZHYS-8B3f0zmZvBS19l&nostub=1
-#EXTINF:0 tvg-id="ch312" tvg-name="UA: Прямий HD" tvg-logo="http://tvtm.one/images/chIcons/312.png" tvg-rec="3", UA: Прямий HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch312/mono.m3u8?token=torpedo1960.v2_tq3tcgbGSftLa8uDY5li-J0H3JJVALGhVl9Po7f51Ix7o6vrCBT_V32S7KlBYq-5z3isqWtceu6aDK0a&nostub=1
-#EXTINF:0 tvg-id="ch315" tvg-name="UA: 24 канал" tvg-logo="http://tvtm.one/images/chIcons/315.png" tvg-rec="3", UA: 24 канал
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch315/mono.m3u8?token=torpedo1960.v2_94ZErG1lCvIyehQVuVuGeJuc2jv2M9FkX71Zea4FtftjpM4h9XAWpgsk7V0aapYCUoqTs1KbbgZ1yJJa&nostub=1
-#EXTINF:0 tvg-id="ch316" tvg-name="UA: Freeдом HD" tvg-logo="http://tvtm.one/images/chIcons/316.png" tvg-rec="3", UA: Freeдом HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch316/mono.m3u8?token=torpedo1960.v2_akmfpJ-Ulm6SI99z2l3E0CBIWnlrgcwLMM56ZyrVeYhJAPqZDaZeaYgHtNXpc3mtLJgpbMa35duDO1Dw&nostub=1
-#EXTINF:0 tvg-id="ch569" tvg-name="UA: Київ TV HD" tvg-logo="http://tvtm.one/images/chIcons/569.png" tvg-rec="3", UA: Київ TV HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch569/mono.m3u8?token=torpedo1960.v2_6y8SLyC-kH0KjHy0ooNMY1apNHSG4crl0Uerh2KOeX29p02Vm-a0-X5W5hkycPgemhCbXPAV8zieXKAi&nostub=1
-#EXTINF:0 tvg-id="ch586" tvg-name="UA: Ми Україна" tvg-logo="http://tvtm.one/images/chIcons/586.png" tvg-rec="3", UA: Ми Україна
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch586/mono.m3u8?token=torpedo1960.v2_26KVTC1iCfKpByxdi0zDRxzXVF0EHWVk4kKzfbKVAtRlqVHXOnipx4eiiq99DXn9k60oYFkZwdG7UwZJ&nostub=1
-#EXTINF:0 tvg-id="ch557" tvg-name="UA: Star Cinema HD" tvg-logo="http://tvtm.one/images/chIcons/557.png" tvg-rec="3", UA: Star Cinema HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch557/mono.m3u8?token=torpedo1960.v2_2eAsa6KC7ZZbSiNP156ZPuqRmZah7FYyt5PPNldxILxwPXVPgLQcp5Nq3-SN7rCoxfeJMCHcIgPNu5F4&nostub=1
-#EXTINF:0 tvg-id="ch607" tvg-name="UA: Дніпро TV HD" tvg-logo="http://tvtm.one/images/chIcons/607.png" tvg-rec="3", UA: Дніпро TV HD
-#EXTGRP:13. Ukraine
-http://16.tvtm.one/ch607/mono.m3u8?token=torpedo1960.v2_zT1Vc3KB_MdH1UUlNx6SisYJOlsEZM4OeRaWv16mJptNajLI3t4t-vzWJj6ssMlK2sThS1zmLOcA58gi&nostub=1
+
 #EXTINF:0 tvg-id="ch562" tvg-name="BY: Беларусь 1 HD" tvg-logo="http://tvtm.one/images/chIcons/562.png" tvg-rec="6", BY: Беларусь 1 HD
 #EXTGRP:14. Belarus
 http://16.tvtm.one/ch562/mono.m3u8?token=torpedo1960.v2_3aVQShvcD8Ik9P5dQKvlvy_Gef-Tgn_tsxStBnfkoz1UmzrfK3DQiOUxqi8HhyNXyrIwo1nr-9eUd-Jk&nostub=1
